@@ -87,7 +87,7 @@ if verifica_password():
 
     chiave_settimana = f"settimana_{data_scelta.strftime('%Y_%m_%d')}"
 
-    # Recupero o inizializzazione dei dati in session_state (impedisce la perdita dei dati)
+    # Recupero o inizializzazione dei dati in session_state
     if chiave_settimana not in st.session_state:
         dati_iniziali = {g: ["RIPOSO" for _ in dipendenti_ore] for g in giorni_colonne}
         st.session_state[chiave_settimana] = pd.DataFrame(dati_iniziali, index=list(dipendenti_ore.keys()))
@@ -100,7 +100,7 @@ if verifica_password():
 
     st.subheader("✍️ Compilazione della Griglia per Dipendente")
 
-    # REGOLA DEL COLORE PER LE ATTIVITÀ (Logica Pastello)
+    # REGOLA DEL COLORE PER LE ATTIVITÀ
     def ottieni_colore_turno(turno):
         turno_upper = str(turno).upper()
         if "SIELTE" in turno_upper:
@@ -114,7 +114,7 @@ if verifica_password():
         elif "MALATTIA" in turno_upper or "FERIE" in turno_upper or "PERMESSO" in turno_upper:
             return "#fce4d6"  # Rosso / Allerta
         else:
-            return "#ffffff"  # Bianco di default
+            return "#ffffff"  # Bianco
 
     # Stile CSS globale iniziale per le etichette delle date in grassetto
     css_dinamico = """
@@ -211,6 +211,7 @@ if verifica_password():
     st.subheader("💾 Scarica il Documento Ufficiale")
 
     output = io.BytesIO()
+    # Il costrutto 'with' chiude l'ExcelWriter in automatico a fine blocco
     with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
         df_report.to_excel(writer, sheet_name="Turni Settimanali")
         workbook  = writer.book
@@ -220,7 +221,6 @@ if verifica_password():
             formato_colore = workbook.add_format({'bg_color': col, 'font_color': '#000000', 'bold': True})
             worksheet.write(idx + 1, 0, nome, formato_colore)
             
-        writer.close()
     dati_excel = output.getvalue()
 
     st.download_button(
@@ -228,3 +228,4 @@ if verifica_password():
         data=dati_excel,
         file_name=f"Pianificazione_Turni_{data_scelta.strftime('%Y_%m_%d')}.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
