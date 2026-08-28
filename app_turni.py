@@ -36,9 +36,9 @@ if verifica_password():
 
     # ==================== CONFIGURAZIONE STRUTTURA DATI ====================
     dipendenti_ore = {
-        "PERINO": 38, "GUARRAIA": 28, "GULLO": 30, "BENIGNO": 0,
-        "NUCCIO": 0, "COCUZZA": 0, "GAITA": 0, "SERIO A.": 30,
-        "FERRUGGIA": 24, "LION": 0, "DE JOMA": 0
+        "PERINO": 38, "GULLO": 30, "GUARRAIA": 28, "SERIO": 30,
+        "FERRUGGIA": 24, "COCUZZA": 0, "GAITA": 0, "BENIGNO": 0,
+        "NUCCIO": 0, "DE JOMA": 0, "LION": 0
     }
 
     # Assegnazione di colori pastello nitidi
