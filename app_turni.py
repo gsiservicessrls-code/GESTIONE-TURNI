@@ -101,40 +101,32 @@ if verifica_password():
 
     st.subheader("✍️ Compilazione della Griglia")
 
-    # 1. GENERAZIONE DELLE DATE SOPRA I TURNI (Riga Intestazione)
-    col_vuota, *cols_date_header = st.columns([1.5, 1, 1, 1, 1, 1, 1, 1])
-    col_vuota.write("") # Spazio vuoto sopra i nomi dei dipendenti
-    
-    for i, giorno in enumerate(giorni_colonne):
-        cols_date_header[i].markdown(
-            f'<div style="text-align: center; font-weight: bold; color: #1e3d59; margin-bottom: 5px; font-size: 14px;">{giorno}</div>', 
-            unsafe_allow_html=True
-        )
-
-    # 2. GENERAZIONE DELLE RIGHE DEI DIPENDENTI CON I SELETTORI
+     # Generazione delle righe: ogni dipendente ha le date sopra i propri turni
     for dipendente in df_lavoro.index:
         col_nome, *cols_giorni = st.columns([1.5, 1, 1, 1, 1, 1, 1, 1])
         colore_sfondo = colori_dipendenti.get(dipendente, "#ffffff")
         
-        # Testo impostato esplicitamente in nero scuro (#000000) nella griglia
+        # Nome del dipendente allineato verticalmente al centro rispetto ai selettori
         col_nome.markdown(
-            f'<div style="background-color:{colore_sfondo}; color: #000000; padding: 6px; border-radius: 4px; font-weight: bold; text-align: center; border: 1px solid #bbb; margin-bottom: 4px;">{dipendente}</div>', 
+            f'<div style="background-color:{colore_sfondo}; color: #000000; padding: 10px 6px; border-radius: 4px; font-weight: bold; text-align: center; border: 1px solid #bbb; margin-top: 24px;">{dipendente}</div>', 
             unsafe_allow_html=True
         )
         
+        # Per ogni singolo giorno, inseriamo la data SOPRA il relativo menu a tendina del dipendente
         for i, giorno in enumerate(giorni_colonne):
             valore_attuale = df_lavoro.at[dipendente, giorno]
             if valore_attuale not in lista_turni:
                 valore_attuale = "RIPOSO"
+            
+            # La stringa del giorno con la data viene usata direttamente come etichetta (label) del selectbox
             scelta = cols_giorni[i].selectbox(
-                f"{giorno}-{dipendente}", 
-                lista_turni, 
+                label=giorno, # Mostra es: "Lunedì 24/08" sopra il box di questo dipendente
+                options=lista_turni, 
                 index=lista_turni.index(valore_attuale), 
-                label_visibility="collapsed" # Mantiene nascosta la label nativa per non sfasare la griglia
+                key=f"{giorno}-{dipendente}", # Chiave univoca per Streamlit
+                label_visibility="visible" # Forza la visibilità sopra il menu a tendina
             )
             df_lavoro.at[dipendente, giorno] = scelta
-
-    st.session_state[chiave_settimana] = df_lavoro
 
     # ==================== CALCOLO FORMULE ORIGINALI ====================
     ore_lavorate_totali = []
