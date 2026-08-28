@@ -100,7 +100,22 @@ if verifica_password():
         df_lavoro = pd.DataFrame(dati_iniziali, index=list(dipendenti_ore.keys()))
 
     st.subheader("✍️ Compilazione della Griglia")
-# 1. DEFINIZIONE DELLE REGOLE DI COLORE PER LE ATTIVITÀ
+st.subheader("✍️ Compilazione della Griglia per Dipendente")
+    
+    # 1. TRUCCO CSS GLOBAL: Forza tutte le etichette delle date in GRASSETTO e nere
+    st.markdown("""
+        <style>
+        div[data-testid="stWidgetLabel"] p {
+            font-weight: bold !important;
+            color: #1e3d59 !important;
+            font-size: 13px !important;
+            text-transform: uppercase;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+    
+    # 2. DEFINIZIONE DELLE REGOLE DI COLORE PER LE ATTIVITÀ
+    # Associa una parola chiave del turno al suo colore di sfondo specifico (colori pastello per la massima leggibilità)
     def ottieni_colore_turno(turno):
         turno_upper = turno.upper()
         if "SIELTE" in turno_upper:
@@ -112,24 +127,13 @@ if verifica_password():
         elif "RIPOSO" in turno_upper or "SENZA TURNO" in turno_upper:
             return "#fff2cc"  # Giallo chiaro pastello
         elif "MALATTIA" in turno_upper or "FERIE" in turno_upper or "PERMESSO" in turno_upper:
-            return "#fce4d6"  # Rosso / Arancione chiaro pastello
+            return "#fce4d6"  # Rosso / Arancione chiaro pastello (Allerta)
         else:
-            return "#ffffff"  # Bianco di default
+            return "#ffffff"  # Bianco di default per gli altri stati
 
-    # Inizializziamo la stringa per i fogli di stile CSS dinamici
-    css_dinamico = """
-    <style>
-    /* Forza le etichette delle date in grassetto e scure */
-    div[data-testid="stWidgetLabel"] p {
-        font-weight: bold !important;
-        color: #1e3d59 !important;
-        font-size: 13px !important;
-        text-transform: uppercase;
-    }
-    </style>
-    """
+    css_dinamico = "<style>"
 
-    # 2. GENERAZIONE DELLE RIGHE PER OGNI SINGOLO DIPENDENTE
+    # 3. GENERAZIONE DELLE RIGHE PER OGNI SINGOLO DIPENDENTE
     for dipendente in df_lavoro.index:
         col_nome, *cols_giorni = st.columns([1.5, 1, 1, 1, 1, 1, 1, 1])
         colore_sfondo_dip = colori_dipendenti.get(dipendente, "#ffffff")
@@ -140,34 +144,34 @@ if verifica_password():
             unsafe_allow_html=True
         )
         
-        # Generazione dei singoli menu a tendina
+        # Generazione dei menu a tendina con colore dinamico per ogni giorno
         for i, giorno in enumerate(giorni_colonne):
             valore_attuale = df_lavoro.at[dipendente, giorno]
             if valore_attuale not in lista_turni:
                 valore_attuale = "RIPOSO"
             
-            # Creiamo una chiave pulita senza caratteri speciali per evitare bug nel CSS
-            chiave_pulita = f"{giorno}_{dipendente}".replace(" ", "").replace("/", "").replace(":", "").replace("+", "")
+            chiave_univoca = f"{giorno}-{dipendente}".replace(" ", "_").replace("/", "_").replace(":", "_")
             
-            # Recuperiamo il colore associato all'attività corrente
+            # Calcola il colore specifico per questo specifico selettore in base al turno selezionato
             colore_attivita = ottieni_colore_turno(valore_attuale)
             
-            # TRUCCO: Generiamo una regola CSS mirata che colora ESATTAMENTE la tendina con questa specifica chiave
+            # Genera la regola CSS mirata per colorare lo sfondo di QUESTO specifico selectbox
             css_dinamico += f"""
-            <style>
-            div[data-testid="stSelectbox"]:has(input[id*="{chiave_pulita}"]) div[data-baseweb="select"] {{
+            div[data-testid="stSelectbox"]has(div[data-placeholder]) div:has(> input[id*="{chiave_univoca}"]) {{
                 background-color: {colore_attivita} !important;
-                border: 1px solid #b0c4de !important;
+                border-radius: 4px;
             }}
-            </style>
+            div:has(> [id*="{chiave_univoca}"]) div[data-baseweb="select"] {{
+                background-color: {colore_attivita} !important;
+                border-radius: 4px;
+            }}
             """
             
-            # Mostriamo il menu a tendina nella colonna corretta
             scelta = cols_giorni[i].selectbox(
                 label=giorno, 
                 options=lista_turni, 
                 index=lista_turni.index(valore_attuale), 
-                key=chiave_pulita, 
+                key=chiave_univoca, 
                 label_visibility="visible"
             )
             df_lavoro.at[dipendente, giorno] = scelta
@@ -175,10 +179,9 @@ if verifica_password():
         # Linea sottile di separazione visiva tra un dipendente e l'altro
         st.markdown("<hr style='margin: 15px 0; border: 0; border-top: 1px dashed #ccc;'>", unsafe_allow_html=True)
 
-    # 3. APPLICAZIONE DEI COLORI DELLA TENDINA ALL'INTERFACCIA
+    # Applica i colori calcolati all'interfaccia grafica di Streamlit
+    css_dinamico += "</style>"
     st.markdown(css_dinamico, unsafe_allow_html=True)
-
-    st.session_state[chiave_settimana] = df_lavoro
     # ==================== CALCOLO FORMULE ORIGINALI ====================
     ore_lavorate_totali = []
     differenze_totali = []
