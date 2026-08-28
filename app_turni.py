@@ -25,7 +25,7 @@ def verifica_password():
         
         if st.button("Accedi"):
             # Credenziali di sicurezza personalizzabili
-            if username == "amministrazione" and password == "TurniAzienda2026!":
+            if username == "amministrazione" and password == "Turniazienda2026!":
                 st.session_state.autenticato = True
                 st.rerun()
             else:
