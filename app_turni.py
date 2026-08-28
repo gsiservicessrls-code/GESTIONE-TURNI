@@ -35,27 +35,26 @@ def verifica_password():
 if verifica_password():
 
     # ==================== CONFIGURAZIONE STRUTTURA DATI ====================
-    # Mappa dei dipendenti con relative ore contrattuali originali
     dipendenti_ore = {
         "PERINO": 38, "GUARRAIA": 28, "GULLO": 30, "BENIGNO": 30,
         "NUCCIO": 0, "COCUZZA": 0, "GAITA": 0, "SERIO A.": 30,
         "FERRUGGIA": 24, "LION": 29, "DE JOMA": 0
     }
 
-    # Assegnazione di un colore pastello specifico per lo sfondo del nome di ogni dipendente
+    # Assegnazione di colori pastello nitidi
     colori_dipendenti = {
-        "PERINO": "#e2ece9",    # Verde Salvia chiarissimo
-        "GUARRAIA": "#fbe7e7",  # Rosa antico chiarissimo
-        "GULLO": "#fff1e6",     # Pesca chiarissimo
-        "BENIGNO": "#eddcd2",   # Tortora chiarissimo
-        "NUCCIO": "#f0efeb",    # Grigio perla
-        "COCUZZA": "#e9d8a6",   # Oro spento chiarissimo
-        "GAITA": "#d8e2dc",     # Verde acqua chiarissimo
-        "SERIO A.": "#ffe5ec",  # Rosa cipria
-        "FERRUGGIA": "#ffeb3b22", # Giallo tenue
-        "LION": "#e8e8e4",      # Grigio platino
-        "DE JOMA": "#f1faee",    # Ghiaccio chiarissimo
-        "ORE DIPENTI": "#f0f2f6" # Colore di default per la riga dei totali
+        "PERINO": "#e2ece9",    
+        "GUARRAIA": "#fbe7e7",  
+        "GULLO": "#fff1e6",     
+        "BENIGNO": "#eddcd2",   
+        "NUCCIO": "#f0efeb",    
+        "COCUZZA": "#e9d8a6",   
+        "GAITA": "#d8e2dc",     
+        "SERIO A.": "#ffe5ec",  
+        "FERRUGGIA": "#fffacd", 
+        "LION": "#e8e8e4",      
+        "DE JOMA": "#f1faee",    
+        "ORE DIPENTI": "#f0f2f6" 
     }
 
     turni_ore = {
@@ -71,24 +70,6 @@ if verifica_password():
     }
 
     lista_turni = list(turni_ore.keys())
-
-    # Funzione per colorare la colonna dei nomi nella tabella di riepilogo
-    def evidenzia_nomi(riga):
-        stile = [''] * len(riga)
-        nome_dipendente = riga.name
-        colore = colori_dipendenti.get(nome_dipendente, '')
-        if colore:
-            # Applica lo sfondo colorato solo alla colonna dell'indice (il nome della persona)
-            st.markdown(
-                f"""
-                <style>
-                div[data-testid="stDataFrame"] table tbody tr:nth-child({list(dipendenti_ore.keys()).index(nome_dipendente) + 1 if nome_dipendente in dipendenti_ore else 12}) th {{
-                    background-color: {colore} !important;
-                }}
-                </style>
-                """, unsafe_allow_html=True
-            )
-        return stile
 
     # ==================== INTERFACCIA UTENTE PRINCIPALE ====================
     st.title("📅 Pianificazione Professionale Turni Online")
@@ -119,9 +100,9 @@ if verifica_password():
         col_nome, *cols_giorni = st.columns([1.5, 1, 1, 1, 1, 1, 1, 1])
         colore_sfondo = colori_dipendenti.get(dipendente, "#ffffff")
         
-        # Inserisce un blocco colorato visivo dietro il nome anche nella griglia di inserimento
+        # CORREZIONE: Testo impostato esplicitamente in nero scuro (#000000) nella griglia
         col_nome.markdown(
-            f'<div style="background-color:{colore_sfondo}; padding: 6px; border-radius: 4px; font-weight: bold; text-align: center; border: 1px solid #ddd; margin-bottom: 4px;">{dipendente}</div>', 
+            f'<div style="background-color:{colore_sfondo}; color: #000000; padding: 6px; border-radius: 4px; font-weight: bold; text-align: center; border: 1px solid #bbb; margin-bottom: 4px;">{dipendente}</div>', 
             unsafe_allow_html=True
         )
         
@@ -162,14 +143,12 @@ if verifica_password():
     df_report.loc["ORE DIPENTI"] = riga_totale
 
     st.subheader("📊 Calcoli Statistici e Totali del Personale")
-    
-    # Applica l'evidenziazione visiva sulla tabella riassuntiva
     st.dataframe(df_report, use_container_width=True)
 
-    # Inietta lo stile CSS specifico per colorare le righe dei nomi nella tabella a schermo
+    # CORREZIONE: Stile CSS per forzare sia lo sfondo pastello che il testo NERO (#000) e in GRASSETTO nella tabella
     html_style = "<style>"
     for idx, (nome, col) in enumerate(colori_dipendenti.items()):
-        html_style += f'div[data-testid="stDataFrame"] table tbody tr:nth-child({idx+1}) th {{ background-color: {col} !important; }}'
+        html_style += f'div[data-testid="stDataFrame"] table tbody tr:nth-child({idx+1}) th {{ background-color: {col} !important; color: #000000 !important; font-weight: bold !important; }}'
     html_style += "</style>"
     st.markdown(html_style, unsafe_allow_html=True)
 
@@ -182,9 +161,9 @@ if verifica_password():
         workbook  = writer.book
         worksheet = writer.sheets['Turni Settimanali']
         
-        # Colora i nomi anche all'interno del file Excel scaricato
         for idx, (nome, col) in enumerate(colori_dipendenti.items()):
-            formato_colore = workbook.add_format({'bg_color': col, 'bold': True})
+            # Testo nero e in grassetto anche nel file Excel finale scaricato
+            formato_colore = workbook.add_format({'bg_color': col, 'font_color': '#000000', 'bold': True})
             worksheet.write(idx + 1, 0, nome, formato_colore)
             
         writer.close()
