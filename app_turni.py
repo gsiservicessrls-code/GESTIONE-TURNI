@@ -101,7 +101,19 @@ if verifica_password():
 
     st.subheader("✍️ Compilazione della Griglia")
 
-     # Generazione delle righe: ogni dipendente ha le date sopra i propri turni
+     # TRUCCO CSS: Forza tutte le etichette dei selectbox ad essere in GRASSETTO, nere e ben visibili
+    st.markdown("""
+        <style>
+        div[data-testid="stWidgetLabel"] p {
+            font-weight: bold !important;
+            color: #1e3d59 !important;
+            font-size: 13px !important;
+            text-transform: uppercase;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+    
+    # Generazione delle righe per ogni singolo dipendente
     for dipendente in df_lavoro.index:
         col_nome, *cols_giorni = st.columns([1.5, 1, 1, 1, 1, 1, 1, 1])
         colore_sfondo = colori_dipendenti.get(dipendente, "#ffffff")
@@ -112,22 +124,23 @@ if verifica_password():
             unsafe_allow_html=True
         )
         
-        # Per ogni singolo giorno, inseriamo la data SOPRA il relativo menu a tendina del dipendente
+        # Per ogni singolo giorno, inseriamo la data in grassetto sopra il relativo menu a tendina
         for i, giorno in enumerate(giorni_colonne):
             valore_attuale = df_lavoro.at[dipendente, giorno]
             if valore_attuale not in lista_turni:
                 valore_attuale = "RIPOSO"
             
-            # La stringa del giorno con la data viene usata direttamente come etichetta (label) del selectbox
             scelta = cols_giorni[i].selectbox(
-                label=giorno, # Mostra es: "Lunedì 24/08" sopra il box di questo dipendente
+                label=giorno, # Il CSS sopra renderà questa scritta in GRASSETTO automatico
                 options=lista_turni, 
                 index=lista_turni.index(valore_attuale), 
-                key=f"{giorno}-{dipendente}", # Chiave univoca per Streamlit
-                label_visibility="visible" # Forza la visibilità sopra il menu a tendina
+                key=f"{giorno}-{dipendente}", 
+                label_visibility="visible"
             )
             df_lavoro.at[dipendente, giorno] = scelta
-
+            
+        # Linea sottile di separazione visiva tra un dipendente e l'altro
+        st.markdown("<hr style='margin: 15px 0; border: 0; border-top: 1px dashed #ccc;'>", unsafe_allow_html=True)
     # ==================== CALCOLO FORMULE ORIGINALI ====================
     ore_lavorate_totali = []
     differenze_totali = []
