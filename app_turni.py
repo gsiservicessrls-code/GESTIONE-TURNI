@@ -1,242 +1,62 @@
 import streamlit as st
-import pandas as pd
-import io
-from datetime import datetime, timedelta
 
-# Configurazione della pagina
-st.set_page_config(page_title="Gestione Turni Personale", layout="wide")
+def interfaccia_blocco_note():
+    st.title("📝 Blocco Note e Appunti")
+    st.subheader("Gestione comunicazioni e promemoria")
 
-# ==================== SISTEMA DI SICUREZZA (LOGIN) ====================
-def verifica_password():
-    """Ritorna True se l'utente è autenticato."""
-    if "autenticato" not in st.session_state:
-        st.session_state.autenticato = False
+    # Inizializza lo stato della memoria per le note se non esiste
+    if "note" not in st.session_state:
+        st.session_state.note = []
 
-    if st.session_state.autenticato:
-        return True
-
-    st.title("🔒 Accesso Riservato - Gestione Turni")
-    st.write("Inserisci le credenziali aziendali per accedere alla pianificazione online.")
+    # --- SEZIONE 1: CREAZIONE NUOVA NOTA ---
+    st.markdown("### ➕ Aggiungi una nuova nota")
     
-    col1, _ = st.columns(2)
-    with col1:
-        username = st.text_input("Nome Utente (Username)")
-        password = st.text_input("Password", type="password")
+    # Layout a due colonne per titolo e categoria
+    col_titolo, col_cat = st.columns([2, 1])
+    with col_titolo:
+        titolo = st.text_input("Titolo della nota", placeholder="Es. Turno Domenica")
+    with col_cat:
+        categoria = st.selectbox("Categoria", ["Urgente", "Promemoria", "Generale"])
         
-        if st.button("Accedi"):
-            if username == "amministrazione" and password == "TurniAzienda2026!":
-                st.session_state.autenticato = True
-                st.rerun()
-            else:
-                st.error("❌ Username o Password errati. Riprova.")
-    return False
+    contenuto = st.text_area("Contenuto della nota", placeholder="Scrivi qui i dettagli...")
 
-# Esegui l'applicazione solo se l'utente ha effettuato l'accesso
-if verifica_password():
-
-    # ==================== CONFIGURAZIONE STRUTTURA DATI ====================
-    dipendenti_ore = {
-        "PERINO": 38, "GULLO": 30, "GUARRAIA": 28, "SERIO": 30,
-        "FERRUGGIA": 24, "COCUZZA": 0, "GAITA": 0, "BENIGNO": 0,
-        "NUCCIO": 0, "DE JOMA": 0, "LION": 0
-    }
-
-    # Assegnazione di colori pastello nitidi
-    colori_dipendenti = {
-        "PERINO": "#e2ece9",    
-        "GUARRAIA": "#fbe7e7",  
-        "GULLO": "#fff1e6",     
-        "BENIGNO": "#eddcd2",   
-        "NUCCIO": "#f0efeb",    
-        "COCUZZA": "#e9d8a6",   
-        "GAITA": "#d8e2dc",     
-        "SERIO A.": "#ffe5ec",  
-        "FERRUGGIA": "#fffacd", 
-        "LION": "#e8e8e4",      
-        "DE JOMA": "#f1faee",    
-        "ORE DIPENTI": "#f0f2f6" 
-    }
-
-    turni_ore = {
-        "RIPOSO": 0, "SENZA TURNO": 0, "PERMESSO RETR.": 0, "FERIE": 0, "MALATTIA": 0,
-        "TOMM 06:30/14:30": 8.0, "TOMM 14:30/22:30": 8.0, "TOMM  22:30/06:30": 8.0,
-        "TOMM 17:30/23:30": 6.0, "TOMM 23:30/06:30": 7.0, "TOM + PAL 06:30/14:30": 8.0,
-        "TOM+PAL 14:30/22:30": 8.0, "SIELTE 06/14": 8.0, "SIELTE 14/22": 8.0, "SIELTE 22/06": 8.0,
-        "SIELTE 20/02": 6.0, "SIELTE 02/08:30": 6.5, "SIELTE 20/01": 5.0, "SIELTE 01/06": 5.0,
-        "SIELTE 06/15": 9.0, "SIELTE 15/24": 9.0, "SIELTE 24/08:30": 8.5, "SIELTE 20/06": 10.0,
-        "SIELTE 06/18": 12.0, "SIELTE 18/06": 12.0, "PALAZZO 06/14": 8.0, "PALAZZO 14/22": 8.0,
-        "PALAZZO 22/06": 8.0, "PALAZZO 16/23": 7.0, "PALAZZO 23/06": 7.0, "PALAZZO 06/18": 12.0,
-        "PAL+TOMM 14:30/22:00": 12.0
-    }
-
-    lista_turni = list(turni_ore.keys())
-
-    # ==================== INTERFACCIA UTENTE PRINCIPALE ====================
-    st.title("📅 Pianificazione Professionale Turni Online")
-    st.write("Le modifiche vengono mantenute in memoria. Scegli la settimana dal calendario.")
-
-    st.subheader("%📆 Selezione Settimana di Riferimento")
-    data_scelta = st.date_input("Seleziona il giorno di inizio (Lunedì):", datetime.now() - timedelta(days=datetime.now().weekday()))
-    
-    # Conversione dei giorni in italiano per l'interfaccia grafica
-    giorni_it = ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"]
-    giorni_colonne = []
-    
-    for i in range(7):
-        giorno_corrente = data_scelta + timedelta(days=i)
-        # Formato finale es: "Lunedì 24/08"
-        giorni_colonne.append(f"{giorni_it[i]} {giorno_corrente.strftime('%d/%m')}")
-
-    chiave_settimana = f"settimana_{data_scelta.strftime('%Y_%m_%d')}"
-
-    if chiave_settimana not in st.session_state:
-        dati_iniziali = {g: ["RIPOSO" for _ in dipendenti_ore] for g in giorni_colonne}
-        st.session_state[chiave_settimana] = pd.DataFrame(dati_iniziali, index=list(dipendenti_ore.keys()))
-
-    df_lavoro = st.session_state[chiave_settimana].copy()
-
-    if list(df_lavoro.columns) != giorni_colonne:
-        dati_iniziali = {g: ["RIPOSO" for _ in dipendenti_ore] for g in giorni_colonne}
-        df_lavoro = pd.DataFrame(dati_iniziali, index=list(dipendenti_ore.keys()))
-
-    st.subheader("✍️ Compilazione della Griglia")
-st.subheader("✍️ Compilazione della Griglia per Dipendente")
-    
-    # 1. TRUCCO CSS GLOBAL: Forza tutte le etichette delle date in GRASSETTO e nere
-    st.markdown("""
-        <style>
-        div[data-testid="stWidgetLabel"] p {
-            font-weight: bold !important;
-            color: #1e3d59 !important;
-            font-size: 13px !important;
-            text-transform: uppercase;
-        }
-        </style>
-    """, unsafe_allow_html=True)
-    
-    # 2. DEFINIZIONE DELLE REGOLE DI COLORE PER LE ATTIVITÀ
-    # Associa una parola chiave del turno al suo colore di sfondo specifico (colori pastello per la massima leggibilità)
-    def ottieni_colore_turno(turno):
-        turno_upper = turno.upper()
-        if "SIELTE" in turno_upper:
-            return "#d4ebf2"  # Celeste pastello
-        elif "PALAZZO" in turno_upper:
-            return "#d4edd5"  # Verde chiaro pastello
-        elif "TOMM" in turno_upper or "TOM" in turno_upper:
-            return "#f0e2d3"  # Marrone chiaro / Beige pastello
-        elif "RIPOSO" in turno_upper or "SENZA TURNO" in turno_upper:
-            return "#fff2cc"  # Giallo chiaro pastello
-        elif "MALATTIA" in turno_upper or "FERIE" in turno_upper or "PERMESSO" in turno_upper:
-            return "#fce4d6"  # Rosso / Arancione chiaro pastello (Allerta)
+    if st.button("Salva Nota", type="primary"):
+        if titolo and contenuto:
+            # Salva la nota come dizionario nella sessione
+            nuova_nota = {
+                "titolo": titolo,
+                "categoria": categoria,
+                "contenuto": contenuto
+            }
+            st.session_state.note.append(nuova_nota)
+            st.success("Nota salvata con successo!")
+            st.rerun()
         else:
-            return "#ffffff"  # Bianco di default per gli altri stati
+            st.error("Per favore, inserisci sia il titolo che il contenuto.")
 
-    css_dinamico = "<style>"
+    st.divider()
 
-    # 3. GENERAZIONE DELLE RIGHE PER OGNI SINGOLO DIPENDENTE
-    for dipendente in df_lavoro.index:
-        col_nome, *cols_giorni = st.columns([1.5, 1, 1, 1, 1, 1, 1, 1])
-        colore_sfondo_dip = colori_dipendenti.get(dipendente, "#ffffff")
-        
-        # Nome del dipendente allineato verticalmente
-        col_nome.markdown(
-            f'<div style="background-color:{colore_sfondo_dip}; color: #000000; padding: 10px 6px; border-radius: 4px; font-weight: bold; text-align: center; border: 1px solid #bbb; margin-top: 24px;">{dipendente}</div>', 
-            unsafe_allow_html=True
-        )
-        
-        # Generazione dei menu a tendina con colore dinamico per ogni giorno
-        for i, giorno in enumerate(giorni_colonne):
-            valore_attuale = df_lavoro.at[dipendente, giorno]
-            if valore_attuale not in lista_turni:
-                valore_attuale = "RIPOSO"
+    # --- SEZIONE 2: VISUALIZZAZIONE E GESTIONE NOTE ---
+    st.markdown("### 📋 Le tue note")
+
+    if not st.session_state.note:
+        st.info("Non ci sono note salvate al momento.")
+    else:
+        # Mostra le note in una griglia o lista
+        for id_nota, nota in enumerate(st.session_state.note):
+            # Colore o etichetta in base alla categoria
+            emoji = "🚨" if nota["categoria"] == "Urgente" else "📌" if nota["categoria"] == "Promemoria" else "✉️"
             
-            chiave_univoca = f"{giorno}-{dipendente}".replace(" ", "_").replace("/", "_").replace(":", "_")
-            
-            # Calcola il colore specifico per questo specifico selettore in base al turno selezionato
-            colore_attivita = ottieni_colore_turno(valore_attuale)
-            
-            # Genera la regola CSS mirata per colorare lo sfondo di QUESTO specifico selectbox
-            css_dinamico += f"""
-            div[data-testid="stSelectbox"]has(div[data-placeholder]) div:has(> input[id*="{chiave_univoca}"]) {{
-                background-color: {colore_attivita} !important;
-                border-radius: 4px;
-            }}
-            div:has(> [id*="{chiave_univoca}"]) div[data-baseweb="select"] {{
-                background-color: {colore_attivita} !important;
-                border-radius: 4px;
-            }}
-            """
-            
-            scelta = cols_giorni[i].selectbox(
-                label=giorno, 
-                options=lista_turni, 
-                index=lista_turni.index(valore_attuale), 
-                key=chiave_univoca, 
-                label_visibility="visible"
-            )
-            df_lavoro.at[dipendente, giorno] = scelta
-            
-        # Linea sottile di separazione visiva tra un dipendente e l'altro
-        st.markdown("<hr style='margin: 15px 0; border: 0; border-top: 1px dashed #ccc;'>", unsafe_allow_html=True)
+            # Crea un box espandibile per ogni nota
+            with st.expander(f"{emoji} {nota['titolo']} ({nota['categoria']})"):
+                st.write(nota["contenuto"])
+                
+                # Pulsante per eliminare la singola nota
+                if st.button(f"Elimina nota", key=f"del_{id_nota}"):
+                    st.session_state.note.pop(id_nota)
+                    st.success("Nota eliminata.")
+                    st.rerun()
 
-    # Applica i colori calcolati all'interfaccia grafica di Streamlit
-    css_dinamico += "</style>"
-    st.markdown(css_dinamico, unsafe_allow_html=True)
-    # ==================== CALCOLO FORMULE ORIGINALI ====================
-    ore_lavorate_totali = []
-    differenze_totali = []
-
-    for dipendente in df_lavoro.index:
-        ore_contrattuali = dipendenti_ore[dipendente]
-        somma_ore_lavorate = sum(turni_ore[df_lavoro.at[dipendente, giorno]] for giorno in giorni_colonne)
-        differenza = somma_ore_lavorate - ore_contrattuali
-        ore_lavorate_totali.append(somma_ore_lavorate)
-        differenze_totali.append(differenza)
-
-    df_report = df_lavoro.copy()
-    df_report.insert(0, "ORE CONTR.", [dipendenti_ore[d] for d in df_report.index])
-    df_report["ORE LAV."] = ore_lavorate_totali
-    df_report["DIFF."] = differenze_totali
-
-    riga_totale = pd.Series(index=df_report.columns, dtype=object)
-    riga_totale["ORE CONTR."] = sum(dipendenti_ore.values())
-    riga_totale["ORE LAV."] = sum(ore_lavorate_totali)
-    riga_totale["DIFF."] = sum(differenze_totali)
-    for giorno in giorni_colonne:
-        riga_totale[giorno] = ""
-
-    df_report.loc["ORE DIPENTI"] = riga_totale
-
-    st.subheader("📊 Calcoli Statistici e Totali del Personale")
-    st.dataframe(df_report, use_container_width=True)
-
-    # Stile CSS per forzare sia lo sfondo pastello che il testo NERO (#000) e in GRASSETTO nella tabella statistica
-    html_style = "<style>"
-    for idx, (nome, col) in enumerate(colori_dipendenti.items()):
-        html_style += f'div[data-testid="stDataFrame"] table tbody tr:nth-child({idx+1}) th {{ background-color: {col} !important; color: #000000 !important; font-weight: bold !important; }}'
-    html_style += "</style>"
-    st.markdown(html_style, unsafe_allow_html=True)
-
-    # ==================== STRUMENTI DI ESPORTAZIONE EXCEL ====================
-    st.subheader("💾 Scarica il Documento Ufficiale")
-
-    output = io.BytesIO()
-    with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
-        df_report.to_excel(writer, sheet_name="Turni Settimanali")
-        workbook  = writer.book
-        worksheet = writer.sheets['Turni Settimanali']
-        
-        for idx, (nome, col) in enumerate(colori_dipendenti.items()):
-            # Testo nero e in grassetto anche nel file Excel finale scaricato
-            formato_colore = workbook.add_format({'bg_color': col, 'font_color': '#000000', 'bold': True})
-            worksheet.write(idx + 1, 0, nome, formato_colore)
-            
-        writer.close()
-    dati_excel = output.getvalue()
-
-    st.download_button(
-        label="🟢 Scarica i turni inseriti in Excel (.xlsx)",
-        data=dati_excel,
-        file_name=f"Pianificazione_Turni_{data_scelta.strftime('%Y_%m_%d')}.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
+# Per testare l'interfaccia da sola basta chiamare la funzione
+if __name__ == "__main__":
+    interfaccia_blocco_note()
