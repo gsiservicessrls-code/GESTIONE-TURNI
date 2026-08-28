@@ -75,13 +75,17 @@ if verifica_password():
     st.title("📅 Pianificazione Professionale Turni Online")
     st.write("Le modifiche vengono mantenute in memoria. Scegli la settimana dal calendario.")
 
-    st.subheader("📆 Selezione Settimana di Riferimento")
+    st.subheader("%📆 Selezione Settimana di Riferimento")
     data_scelta = st.date_input("Seleziona il giorno di inizio (Lunedì):", datetime.now() - timedelta(days=datetime.now().weekday()))
     
+    # Conversione dei giorni in italiano per l'interfaccia grafica
+    giorni_it = ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"]
     giorni_colonne = []
+    
     for i in range(7):
         giorno_corrente = data_scelta + timedelta(days=i)
-        giorni_colonne.append(giorno_corrente.strftime("%A %d/%m"))
+        # Formato finale es: "Lunedì 24/08"
+        giorni_colonne.append(f"{giorni_it[i]} {giorno_corrente.strftime('%d/%m')}")
 
     chiave_settimana = f"settimana_{data_scelta.strftime('%Y_%m_%d')}"
 
@@ -96,11 +100,23 @@ if verifica_password():
         df_lavoro = pd.DataFrame(dati_iniziali, index=list(dipendenti_ore.keys()))
 
     st.subheader("✍️ Compilazione della Griglia")
+
+    # 1. GENERAZIONE DELLE DATE SOPRA I TURNI (Riga Intestazione)
+    col_vuota, *cols_date_header = st.columns([1.5, 1, 1, 1, 1, 1, 1, 1])
+    col_vuota.write("") # Spazio vuoto sopra i nomi dei dipendenti
+    
+    for i, giorno in enumerate(giorni_colonne):
+        cols_date_header[i].markdown(
+            f'<div style="text-align: center; font-weight: bold; color: #1e3d59; margin-bottom: 5px; font-size: 14px;">{giorno}</div>', 
+            unsafe_allow_html=True
+        )
+
+    # 2. GENERAZIONE DELLE RIGHE DEI DIPENDENTI CON I SELETTORI
     for dipendente in df_lavoro.index:
         col_nome, *cols_giorni = st.columns([1.5, 1, 1, 1, 1, 1, 1, 1])
         colore_sfondo = colori_dipendenti.get(dipendente, "#ffffff")
         
-        # CORREZIONE: Testo impostato esplicitamente in nero scuro (#000000) nella griglia
+        # Testo impostato esplicitamente in nero scuro (#000000) nella griglia
         col_nome.markdown(
             f'<div style="background-color:{colore_sfondo}; color: #000000; padding: 6px; border-radius: 4px; font-weight: bold; text-align: center; border: 1px solid #bbb; margin-bottom: 4px;">{dipendente}</div>', 
             unsafe_allow_html=True
@@ -111,7 +127,10 @@ if verifica_password():
             if valore_attuale not in lista_turni:
                 valore_attuale = "RIPOSO"
             scelta = cols_giorni[i].selectbox(
-                f"{giorno}-{dipendente}", lista_turni, index=lista_turni.index(valore_attuale), label_visibility="collapsed"
+                f"{giorno}-{dipendente}", 
+                lista_turni, 
+                index=lista_turni.index(valore_attuale), 
+                label_visibility="collapsed" # Mantiene nascosta la label nativa per non sfasare la griglia
             )
             df_lavoro.at[dipendente, giorno] = scelta
 
@@ -145,7 +164,7 @@ if verifica_password():
     st.subheader("📊 Calcoli Statistici e Totali del Personale")
     st.dataframe(df_report, use_container_width=True)
 
-    # CORREZIONE: Stile CSS per forzare sia lo sfondo pastello che il testo NERO (#000) e in GRASSETTO nella tabella
+    # Stile CSS per forzare sia lo sfondo pastello che il testo NERO (#000) e in GRASSETTO nella tabella statistica
     html_style = "<style>"
     for idx, (nome, col) in enumerate(colori_dipendenti.items()):
         html_style += f'div[data-testid="stDataFrame"] table tbody tr:nth-child({idx+1}) th {{ background-color: {col} !important; color: #000000 !important; font-weight: bold !important; }}'
