@@ -100,8 +100,7 @@ if verifica_password():
         df_lavoro = pd.DataFrame(dati_iniziali, index=list(dipendenti_ore.keys()))
 
     st.subheader("✍️ Compilazione della Griglia")
-
-     # TRUCCO CSS: Forza tutte le etichette dei selectbox ad essere in GRASSETTO, nere e ben visibili
+# 1. TRUCCO CSS GLOBAL: Forza tutte le etichette delle date in GRASSETTO e nere
     st.markdown("""
         <style>
         div[data-testid="stWidgetLabel"] p {
@@ -113,34 +112,75 @@ if verifica_password():
         </style>
     """, unsafe_allow_html=True)
     
-    # Generazione delle righe per ogni singolo dipendente
+    # 2. DEFINIZIONE DELLE REGOLE DI COLORE PER LE ATTIVITÀ
+    # Associa una parola chiave del turno al suo colore di sfondo specifico (colori pastello per la massima leggibilità)
+    def ottieni_colore_turno(turno):
+        turno_upper = turno.upper()
+        if "SIELTE" in turno_upper:
+            return "#d4ebf2"  # Celeste pastello
+        elif "PALAZZO" in turno_upper:
+            return "#d4edd5"  # Verde chiaro pastello
+        elif "TOMM" in turno_upper or "TOM" in turno_upper:
+            return "#f0e2d3"  # Marrone chiaro / Beige pastello
+        elif "RIPOSO" in turno_upper or "SENZA TURNO" in turno_upper:
+            return "#fff2cc"  # Giallo chiaro pastello
+        elif "MALATTIA" in turno_upper or "FERIE" in turno_upper or "PERMESSO" in turno_upper:
+            return "#fce4d6"  # Rosso / Arancione chiaro pastello (Allerta)
+        else:
+            return "#ffffff"  # Bianco di default per gli altri stati
+
+    css_dinamico = "<style>"
+
+    # 3. GENERAZIONE DELLE RIGHE PER OGNI SINGOLO DIPENDENTE
     for dipendente in df_lavoro.index:
         col_nome, *cols_giorni = st.columns([1.5, 1, 1, 1, 1, 1, 1, 1])
-        colore_sfondo = colori_dipendenti.get(dipendente, "#ffffff")
+        colore_sfondo_dip = colori_dipendenti.get(dipendente, "#ffffff")
         
-        # Nome del dipendente allineato verticalmente al centro rispetto ai selettori
+        # Nome del dipendente allineato verticalmente
         col_nome.markdown(
-            f'<div style="background-color:{colore_sfondo}; color: #000000; padding: 10px 6px; border-radius: 4px; font-weight: bold; text-align: center; border: 1px solid #bbb; margin-top: 24px;">{dipendente}</div>', 
+            f'<div style="background-color:{colore_sfondo_dip}; color: #000000; padding: 10px 6px; border-radius: 4px; font-weight: bold; text-align: center; border: 1px solid #bbb; margin-top: 24px;">{dipendente}</div>', 
             unsafe_allow_html=True
         )
         
-        # Per ogni singolo giorno, inseriamo la data in grassetto sopra il relativo menu a tendina
+        # Generazione dei menu a tendina con colore dinamico per ogni giorno
         for i, giorno in enumerate(giorni_colonne):
             valore_attuale = df_lavoro.at[dipendente, giorno]
             if valore_attuale not in lista_turni:
                 valore_attuale = "RIPOSO"
             
+            chiave_univoca = f"{giorno}-{dipendente}".replace(" ", "_").replace("/", "_").replace(":", "_")
+            
+            # Calcola il colore specifico per questo specifico selettore in base al turno selezionato
+            colore_attivita = ottieni_colore_turno(valore_attuale)
+            
+            # Genera la regola CSS mirata per colorare lo sfondo di QUESTO specifico selectbox
+            css_dinamico += f"""
+            div[data-testid="stSelectbox"]has(div[data-placeholder]) div:has(> input[id*="{chiave_univoca}"]) {{
+                background-color: {colore_attivita} !important;
+                border-radius: 4px;
+            }}
+            div:has(> [id*="{chiave_univoca}"]) div[data-baseweb="select"] {{
+                background-color: {colore_attivita} !important;
+                border-radius: 4px;
+            }}
+            """
+            
             scelta = cols_giorni[i].selectbox(
-                label=giorno, # Il CSS sopra renderà questa scritta in GRASSETTO automatico
+                label=giorno, 
                 options=lista_turni, 
                 index=lista_turni.index(valore_attuale), 
-                key=f"{giorno}-{dipendente}", 
+                key=chiave_univoca, 
                 label_visibility="visible"
             )
             df_lavoro.at[dipendente, giorno] = scelta
             
         # Linea sottile di separazione visiva tra un dipendente e l'altro
         st.markdown("<hr style='margin: 15px 0; border: 0; border-top: 1px dashed #ccc;'>", unsafe_allow_html=True)
+
+    # Applica i colori calcolati all'interfaccia grafica di Streamlit
+    css_dinamico += "</style>"
+    st.markdown(css_dinamico, unsafe_allow_html=True)
+     
     # ==================== CALCOLO FORMULE ORIGINALI ====================
     ore_lavorate_totali = []
     differenze_totali = []
