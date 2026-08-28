@@ -18,7 +18,7 @@ def verifica_password():
     st.title("🔒 Accesso Riservato - Gestione Turni")
     st.write("Inserisci le credenziali aziendali per accedere alla pianificazione online.")
     
-    col1, _ = st.columns()
+    col1, _ = st.columns(2)
     with col1:
         username = st.text_input("Nome Utente (Username)")
         password = st.text_input("Password", type="password")
