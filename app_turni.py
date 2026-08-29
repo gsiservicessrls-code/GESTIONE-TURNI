@@ -1,26 +1,39 @@
 import streamlit as st
 import pandas as pd
 import io
-from datetime import datetime, timedelta  # Risolve l'errore NameError delle date
+from datetime import datetime, timedelta
 
 # Configurazione della pagina
 st.set_page_config(page_title="Gestione Turni Personale", layout="wide")
 
 # ==============================================================================
-# 🎨 APPLICAZIONE DINAMICA DELLO STILE CSS (Giallo per dipendenti specifici)
+# 🎨 CONFIGURAZIONE COLORI PERSONALIZZATI PER OGNI DIPENDENTE
 # ==============================================================================
-# Lista dei dipendenti che devono avere lo sfondo giallo nei selectbox
-dipendenti_da_colorare = ["PERINO", "GULLO", "GUARRAIA", "SERIO A.", "FERRUGGIA", "COCUZZA"]
+# Definizione di un colore unico (HEX) per il selectbox di ciascun dipendente
+colori_dipendenti = {
+    "PERINO": "#fff2cc",       # Giallo tenue
+    "GUARRAIA": "#e2efda",     # Verde chiaro
+    "GULLO": "#fce4d6",        # Arancione/Pesca chiaro
+    "SERIO A.": "#d9e1f2",     # Azzurro pastello
+    "FERRUGGIA": "#e1d5e7",    # Lilla/Viola chiaro
+    "COCUZZA": "#fff2cc",      # Giallo tenue (puoi cambiarlo in ciò che preferisci)
+    "BENIGNO": "#f2f2f2",      # Grigio chiarissimo
+    "NUCCIO": "#e6f7ff",       # Celeste chiaro
+    "GAITA": "#fff7e6",        # Crema/Arancio chiarissimo
+    "LION": "#f6ffed",         # Verde menta
+    "DE JOMA": "#fff0f6"       # Rosa pallido
+}
+
 giorni_lista = ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"]
 
 css_rules = []
-for dip in dipendenti_da_colorare:
-    # Rimuoviamo eventuali spazi o punti per rendere la chiave CSS valida e sicura
+for dip, colore in colori_dipendenti.items():
+    # Pulizia del nome per creare ID CSS validi (rimuove spazi e punti)
     dip_clean = dip.replace(" ", "").replace(".", "")
     for g in giorni_lista:
         css_rules.append(f"""
         div[data-testid="stSelectbox"]:has(input[id*="sel_{dip_clean}_{g}"]) div[data-baseweb="select"] {{
-            background-color: #fff2cc !important;
+            background-color: {colore} !important;
             border: 1px solid #b0c4de !important;
         }}
         """)
@@ -37,9 +50,9 @@ st.write("Seleziona i turni dal menu. I calcoli e i totali si aggiornano in temp
 
 # Elenco dei dipendenti e ore contrattuali originali + DE JOMA
 dipendenti_ore = {
-    "PERINO": 38, "GULLO": 30, "GUARRAIA": 28, "SERIO": 30,
-    "FERRUGGIA": 24, "COCUZZA": 0, "GAITA": 0, "BENIGNO.": 0,
-    "NUCCIO": 0, "DE JOMA": 0, "LION": 0
+    "PERINO": 38, "GUARRAIA": 28, "GULLO": 30, "BENIGNO": 30,
+    "NUCCIO": 0, "COCUZZA": 0, "GAITA": 0, "SERIO A.": 30,
+    "FERRUGGIA": 24, "LION": 29, "DE JOMA": 0
 }
 
 # Elenco completo di tutti i 31 turni e relativi valori orari
@@ -75,7 +88,7 @@ for dipendente in df_inserimento.index:
         if valore_attuale not in lista_turni:
             valore_attuale = "RIPOSO"
             
-        # Generiamo una chiave pulita per l'ID del selectbox (collegata al CSS sopra)
+        # Generiamo una chiave pulita per l'ID del selectbox (collegata al dizionario colori)
         dip_clean = dipendente.replace(" ", "").replace(".", "")
         chiave_selettore = f"sel_{dip_clean}_{giorno}"
         
@@ -84,7 +97,7 @@ for dipendente in df_inserimento.index:
             lista_turni, 
             index=lista_turni.index(valore_attuale), 
             label_visibility="collapsed",
-            key=chiave_selettore # Fondamentale per agganciare lo stile CSS
+            key=chiave_selettore
         )
         df_inserimento.at[dipendente, giorno] = scelta
 
