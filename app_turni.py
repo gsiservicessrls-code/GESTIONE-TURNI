@@ -1,10 +1,37 @@
 import streamlit as st
 import pandas as pd
 import io
+from datetime import datetime, timedelta  # Risolve l'errore NameError delle date
 
 # Configurazione della pagina
 st.set_page_config(page_title="Gestione Turni Personale", layout="wide")
 
+# ==============================================================================
+# 🎨 APPLICAZIONE DINAMICA DELLO STILE CSS (Giallo per dipendenti specifici)
+# ==============================================================================
+# Lista dei dipendenti che devono avere lo sfondo giallo nei selectbox
+dipendenti_da_colorare = ["PERINO", "GULLO", "GUARRAIA", "SERIO A.", "FERRUGGIA", "COCUZZA"]
+giorni_lista = ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"]
+
+css_rules = []
+for dip in dipendenti_da_colorare:
+    # Rimuoviamo eventuali spazi o punti per rendere la chiave CSS valida e sicura
+    dip_clean = dip.replace(" ", "").replace(".", "")
+    for g in giorni_lista:
+        css_rules.append(f"""
+        div[data-testid="stSelectbox"]:has(input[id*="sel_{dip_clean}_{g}"]) div[data-baseweb="select"] {{
+            background-color: #fff2cc !important;
+            border: 1px solid #b0c4de !important;
+        }}
+        """)
+
+# Iniezione del CSS nella pagina Streamlit
+st.markdown(f"<style>{''.join(css_rules)}</style>", unsafe_allow_html=True)
+
+
+# ==============================================================================
+# ⚙️ LOGICA E STRUTTURA DELL'APPLICAZIONE
+# ==============================================================================
 st.title("📅 Pianificazione Settimanale dei Turni")
 st.write("Seleziona i turni dal menu. I calcoli e i totali si aggiornano in tempo reale.")
 
@@ -47,8 +74,17 @@ for dipendente in df_inserimento.index:
         valore_attuale = df_inserimento.at[dipendente, giorno]
         if valore_attuale not in lista_turni:
             valore_attuale = "RIPOSO"
+            
+        # Generiamo una chiave pulita per l'ID del selectbox (collegata al CSS sopra)
+        dip_clean = dipendente.replace(" ", "").replace(".", "")
+        chiave_selettore = f"sel_{dip_clean}_{giorno}"
+        
         scelta = cols_giorni[i].selectbox(
-            f"{giorno}-{dipendente}", lista_turni, index=lista_turni.index(valore_attuale), label_visibility="collapsed"
+            f"{giorno}-{dipendente}", 
+            lista_turni, 
+            index=lista_turni.index(valore_attuale), 
+            label_visibility="collapsed",
+            key=chiave_selettore # Fondamentale per agganciare lo stile CSS
         )
         df_inserimento.at[dipendente, giorno] = scelta
 
