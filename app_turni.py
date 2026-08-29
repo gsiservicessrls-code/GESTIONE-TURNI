@@ -1,7 +1,20 @@
 import streamlit as st
-import pandas as pd
-import io
-from datetime import datetime, timedelta
+
+# Liste dei dati
+cognomi = ["PERINO", "GULLO", "GUARRAIA", "SERIO", "FERRUGGIA", "COCUZZA"]
+giorni = ["Lunedì2408", "Martedì2508", "Mercoledì2608", "Giovedì2708", "Venerdì2808", "Sabato2908", "Domenica3008"]
+
+# Generazione del CSS
+css_rules = []
+for cognome in cognomi:
+    for giorno in giorni:
+        css_rules.append(f"""
+        div[data-testid="stSelectbox"]:has(input[id*="sel_{cognome}_{giorno}"]) div[data-baseweb="select"] {{
+            background-color: #fff2cc !important;
+            border: 1px solid #b0c4de !important;
+        }}
+        """)
+
 
 # Configurazione della pagina
 st.set_page_config(page_title="Gestione Turni Personale", layout="wide")
