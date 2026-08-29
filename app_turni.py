@@ -9,14 +9,13 @@ st.set_page_config(page_title="Gestione Turni Personale", layout="wide")
 # ==============================================================================
 # 🎨 CONFIGURAZIONE COLORI PERSONALIZZATI PER OGNI DIPENDENTE
 # ==============================================================================
-# Definizione di un colore unico (HEX) per il selectbox di ciascun dipendente
 colori_dipendenti = {
     "PERINO": "#fff2cc",       # Giallo tenue
     "GUARRAIA": "#e2efda",     # Verde chiaro
     "GULLO": "#fce4d6",        # Arancione/Pesca chiaro
     "SERIO A.": "#d9e1f2",     # Azzurro pastello
     "FERRUGGIA": "#e1d5e7",    # Lilla/Viola chiaro
-    "COCUZZA": "#fff2cc",      # Giallo tenue (puoi cambiarlo in ciò che preferisci)
+    "COCUZZA": "#fff2cc",      # Giallo tenue
     "BENIGNO": "#f2f2f2",      # Grigio chiarissimo
     "NUCCIO": "#e6f7ff",       # Celeste chiaro
     "GAITA": "#fff7e6",        # Crema/Arancio chiarissimo
@@ -24,31 +23,22 @@ colori_dipendenti = {
     "DE JOMA": "#fff0f6"       # Rosa pallido
 }
 
-giorni_lista = ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"]
-
-css_rules = []
-for dip, colore in colori_dipendenti.items():
-    # Pulizia del nome per creare ID CSS validi (rimuove spazi e punti)
-    dip_clean = dip.replace(" ", "").replace(".", "")
-    for g in giorni_lista:
-        css_rules.append(f"""
-        div[data-testid="stSelectbox"]:has(input[id*="sel_{dip_clean}_{g}"]) div[data-baseweb="select"] {{
-            background-color: {colore} !important;
-            border: 1px solid #b0c4de !important;
-        }}
-        """)
-
-# Iniezione del CSS nella pagina Streamlit
-st.markdown(f"<style>{''.join(css_rules)}</style>", unsafe_allow_html=True)
-
+# Funzione interna per applicare i colori di sfondo alle righe dei dipendenti
+def colora_righe(row):
+    dipendente = row.name
+    colore = colori_dipendenti.get(dipendente, "#ffffff")
+    # Applica il colore a tutte le celle della riga (tranne la riga finale dei totali complessivi)
+    if dipendente == "ORE DIPENTI":
+        return ["background-color: #f2f2f2; font-weight: bold;"] * len(row)
+    return [f"background-color: {colore};"] * len(row)
 
 # ==============================================================================
-# ⚙️ LOGICA E STRUTTURA DELL'APPLICAZIONE
+# ⚙️ LOGICA E DATI DELL'APPLICAZIONE
 # ==============================================================================
 st.title("📅 Pianificazione Settimanale dei Turni")
-st.write("Seleziona i turni dal menu. I calcoli e i totali si aggiornano in tempo reale.")
+st.write("Modifica i turni direttamente cliccando sulle celle della tabella. I totali si aggiornano all'istante.")
 
-# Elenco dei dipendenti e ore contrattuali originali + DE JOMA
+# Elenco dei dipendenti e ore contrattuali
 dipendenti_ore = {
     "PERINO": 38, "GUARRAIA": 28, "GULLO": 30, "BENIGNO": 30,
     "NUCCIO": 0, "COCUZZA": 0, "GAITA": 0, "SERIO A.": 30,
@@ -71,51 +61,53 @@ turni_ore = {
 giorni = ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"]
 lista_turni = list(turni_ore.keys())
 
-# Inizializzazione della tabella
+# Inizializzazione dello stato della tabella
 if "tabella_turni" not in st.session_state:
     dati_iniziali = {giorno: ["RIPOSO" for _ in dipendenti_ore] for giorno in giorni}
     st.session_state.tabella_turni = pd.DataFrame(dati_iniziali, index=list(dipendenti_ore.keys()))
 
-df_inserimento = st.session_state.tabella_turni.copy()
+# Configurazione delle colonne per il menu a tendina dentro la tabella interattiva
+configurazione_colonne = {
+    giorno: st.column_config.SelectboxColumn(
+        giorno,
+        options=lista_turni,
+        required=True,
+        width="medium"
+    )
+    for giorno in giorni
+}
 
-# Generazione della griglia interattiva con menu a tendina
+# ✍️ GRIGLIA INTERATTIVA DI INSERIMENTO COLORATA
 st.subheader("✍️ Inserimento Turni Personale")
-for dipendente in df_inserimento.index:
-    col_nome, *cols_giorni = st.columns([1.5, 1, 1, 1, 1, 1, 1, 1])
-    col_nome.write(f"**{dipendente}**")
-    for i, giorno in enumerate(giorni):
-        valore_attuale = df_inserimento.at[dipendente, giorno]
-        if valore_attuale not in lista_turni:
-            valore_attuale = "RIPOSO"
-            
-        # Generiamo una chiave pulita per l'ID del selectbox (collegata al dizionario colori)
-        dip_clean = dipendente.replace(" ", "").replace(".", "")
-        chiave_selettore = f"sel_{dip_clean}_{giorno}"
-        
-        scelta = cols_giorni[i].selectbox(
-            f"{giorno}-{dipendente}", 
-            lista_turni, 
-            index=lista_turni.index(valore_attuale), 
-            label_visibility="collapsed",
-            key=chiave_selettore
-        )
-        df_inserimento.at[dipendente, giorno] = scelta
 
-st.session_state.tabella_turni = df_inserimento
+# Applichiamo lo stile dei colori alla griglia modificabile
+df_colorato_inserimento = st.session_state.tabella_turni.style.apply(colora_righe, axis=1)
 
-# Calcolo dei totali basato sulle formule del documento originale
+df_modificato = st.data_editor(
+    df_colorato_inserimento,
+    column_config=configurazione_colonne,
+    use_container_width=True,
+    key="editor_turni"
+)
+
+# Salviamo le modifiche effettuate dall'utente nello stato dell'app
+st.session_state.tabella_turni = pd.DataFrame(df_modificato)
+
+# ==============================================================================
+# 📊 CALCOLO DEI TOTALI E DEI REPORT
+# ==============================================================================
 ore_lavorate_totali = []
 differenze_totali = []
 
-for dipendente in df_inserimento.index:
+for dipendente in st.session_state.tabella_turni.index:
     ore_contrattuali = dipendenti_ore[dipendente]
-    somma_ore_lavorate = sum(turni_ore[df_inserimento.at[dipendente, giorno]] for giorno in giorni)
+    somma_ore_lavorate = sum(turni_ore[st.session_state.tabella_turni.at[dipendente, giorno]] for giorno in giorni)
     differenza = somma_ore_lavorate - ore_contrattuali
     ore_lavorate_totali.append(somma_ore_lavorate)
     differenze_totali.append(differenza)
 
 # Creazione del report riassuntivo finale
-df_report = df_inserimento.copy()
+df_report = st.session_state.tabella_turni.copy()
 df_report.insert(0, "ORE CONTR.", [dipendenti_ore[d] for d in df_report.index])
 df_report["ORE LAV."] = ore_lavorate_totali
 df_report["DIFF."] = differenze_totali
@@ -130,10 +122,13 @@ for giorno in giorni:
 
 df_report.loc["ORE DIPENTI"] = riga_totale
 
+# Mostra il report finale con la stessa formattazione colore coerente
 st.subheader("📊 Riepilogo Calcoli e Totali del Personale")
-st.dataframe(df_report, use_container_width=True)
+st.dataframe(df_report.style.apply(colora_righe, axis=1), use_container_width=True)
 
-# Generazione nativa del file Excel per il download
+# ==============================================================================
+# 💾 ESPORTAZIONE EXCEL
+# ==============================================================================
 st.subheader("💾 Esporta i Dati Compilati")
 
 output = io.BytesIO()
