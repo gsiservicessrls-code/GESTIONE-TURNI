@@ -37,9 +37,9 @@ st.write("Seleziona i turni dal menu. I calcoli e i totali si aggiornano in temp
 
 # Elenco dei dipendenti e ore contrattuali originali + DE JOMA
 dipendenti_ore = {
-    "PERINO": 38, "GUARRAIA": 28, "GULLO": 30, "BENIGNO": 30,
-    "NUCCIO": 0, "COCUZZA": 0, "GAITA": 0, "SERIO A.": 30,
-    "FERRUGGIA": 24, "LION": 29, "DE JOMA": 0
+    "PERINO": 38, "GULLO": 30, "GUARRAIA": 28, "SERIO": 30,
+    "FERRUGGIA": 24, "COCUZZA": 0, "GAITA": 0, "BENIGNO.": 0,
+    "NUCCIO": 0, "DE JOMA": 0, "LION": 0
 }
 
 # Elenco completo di tutti i 31 turni e relativi valori orari
