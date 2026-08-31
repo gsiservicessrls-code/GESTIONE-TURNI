@@ -7,21 +7,20 @@ from datetime import datetime, timedelta
 st.set_page_config(page_title="Gestione Turni Personale", layout="wide")
 
 # ==============================================================================
-# 🎨 IMPOSTAZIONE DEI COLORI NEI NOMINATIVI (Stringa in alto)
+# 🎨 NUOVO ORDINE DEI NOMINATIVI E ORE CONTRATTUALI (Punto 2)
 # ==============================================================================
-# Abbiamo inserito i simboli colorati direttamente nei nomi per riconoscerli subito
 dipendenti_ore = {
     "🟡 PERINO": 38, 
-    "🟢 GUARRAIA": 28, 
-    "🟠 GULLO": 30, 
-    "⚪ BENIGNO": 30,
-    "🔵 NUCCIO": 0, 
-    "🟡 COCUZZA": 0, 
-    "⚫ GAITA": 0, 
     "🔵 SERIO A.": 30,
+    "🟠 GULLO": 30, 
+    "🟢 GUARRAIA": 28, 
     "🟣 FERRUGGIA": 24, 
-    "🟢 LION": 29, 
-    "🟤 DE JOMA": 0
+    "喂 BENIGNO": 0,    # Impostato a 0 ore come richiesto
+    "🟡 COCUZZA": 0, 
+    "🟤 DE JOMA": 0,
+    "⚫ GAITA": 0, 
+    "🔵 NUCCIO": 0, 
+    "🟢 LION": 0        # Impostato a 0 ore come richiesto
 }
 
 # ==============================================================================
@@ -43,22 +42,41 @@ turni_ore = {
     "PAL+TOMM 14:30/22:00": 12.0
 }
 
-giorni = ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"]
+# GENERAZIONE DATE DINFAMICHE (Punto 1)
+data_inizio = datetime.strptime("31/08/2026", "%d/%m/%Y")
+giorni_nomi = ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"]
+giorni_formattati = []
+colonne_report = []
+
+for i, giorno in enumerate(giorni_nomi):
+    data_corrente = data_inizio + timedelta(days=i)
+    data_str = data_corrente.strftime("%d/%m")
+    giorni_formattati.append(f"{giorno} {data_str}")
+    colonne_report.append(f"{giorno} {data_str}")
+
 lista_turni = list(turni_ore.keys())
 
 # Inizializzazione della tabella
 if "tabella_turni" not in st.session_state:
-    dati_iniziali = {giorno: ["RIPOSO" for _ in dipendenti_ore] for giorno in giorni}
+    dati_iniziali = {giorno: ["RIPOSO" for _ in dipendenti_ore] for giorno in giorni_formattati}
     st.session_state.tabella_turni = pd.DataFrame(dati_iniziali, index=list(dipendenti_ore.keys()))
 
 df_inserimento = st.session_state.tabella_turni.copy()
 
-# Generazione della griglia interattiva con menu a tendina originale
+# Generazione della griglia interattiva con date sopra le caselle
 st.subheader("✍️ Inserimento Turni Personale")
+
+# Riga di intestazione con i giorni e le date
+cols_header = st.columns([1.5, 1, 1, 1, 1, 1, 1, 1])
+cols_header[0].write("**Dipendenti**")
+for i, gf in enumerate(giorni_formattati):
+    cols_header[i+1].write(f"**{gf}**")
+
+# Righe dei menu a tendina per dipendente
 for dipendente in df_inserimento.index:
     col_nome, *cols_giorni = st.columns([1.5, 1, 1, 1, 1, 1, 1, 1])
     col_nome.write(f"**{dipendente}**")
-    for i, giorno in enumerate(giorni):
+    for i, giorno in enumerate(giorni_formattati):
         valore_attuale = df_inserimento.at[dipendente, giorno]
         if valore_attuale not in lista_turni:
             valore_attuale = "RIPOSO"
@@ -69,29 +87,29 @@ for dipendente in df_inserimento.index:
 
 st.session_state.tabella_turni = df_inserimento
 
-# Calcolo dei totali basato sulle formule del documento originale
+# Calcolo dei totali
 ore_lavorate_totali = []
 differenze_totali = []
 
 for dipendente in df_inserimento.index:
     ore_contrattuali = dipendenti_ore[dipendente]
-    somma_ore_lavorate = sum(turni_ore[df_inserimento.at[dipendente, giorno]] for giorno in giorni)
+    somma_ore_lavorate = sum(turni_ore[df_inserimento.at[dipendente, giorno]] for giorno in giorni_formattati)
     differenza = somma_ore_lavorate - ore_contrattuali
     ore_lavorate_totali.append(somma_ore_lavorate)
     differenze_totali.append(differenza)
 
-# Creazione del report riassuntivo finale
+# Creazione del report riassuntivo finale con le nuove intestazioni data
 df_report = df_inserimento.copy()
 df_report.insert(0, "ORE CONTR.", [dipendenti_ore[d] for d in df_report.index])
 df_report["ORE LAV."] = ore_lavorate_totali
 df_report["DIFF."] = differenze_totali
 
-# Calcolo automatico della riga finale ORE DIPENTI (Totale complessivo della ditta)
+# Calcolo automatico della riga finale ORE DIPENTI
 riga_totale = pd.Series(index=df_report.columns, dtype=object)
 riga_totale["ORE CONTR."] = sum(dipendenti_ore.values())
 riga_totale["ORE LAV."] = sum(ore_lavorate_totali)
 riga_totale["DIFF."] = sum(differenze_totali)
-for giorno in giorni:
+for giorno in giorni_formattati:
     riga_totale[giorno] = ""
 
 df_report.loc["ORE DIPENTI"] = riga_totale
@@ -99,7 +117,7 @@ df_report.loc["ORE DIPENTI"] = riga_totale
 st.subheader("📊 Riepilogo Calcoli e Totali del Personale")
 st.dataframe(df_report, use_container_width=True)
 
-# Generazione nativa del file Excel per il download
+# Generazione del file Excel per il download
 st.subheader("💾 Esporta i Dati Compilati")
 
 output = io.BytesIO()
