@@ -55,20 +55,16 @@ lista_turni = list(turni_ore.keys())
 # Inizializzazione o caricamento automatico dal file salvato
 if "tabella_turni" not in st.session_state:
     if os.path.exists(FILE_SALVATAGGIO):
-        # Carica i dati salvati in precedenza
         try:
             df_caricato = pd.read_csv(FILE_SALVATAGGIO, index_col=0)
-            # Verifica che le colonne e i dipendenti corrispondano alla struttura attuale
             if list(df_caricato.index) == list(dipendenti_ore.keys()) and list(df_caricato.columns) == giorni_formattati:
                 st.session_state.tabella_turni = df_caricato
             else:
                 raise ValueError("Struttura non corrispondente")
         except:
-            # Se il file è corrotto o vecchio, crea un file vuoto di base
             dati_iniziali = {giorno: ["RIPOSO" for _ in dipendenti_ore] for giorno in giorni_formattati}
             st.session_state.tabella_turni = pd.DataFrame(dati_iniziali, index=list(dipendenti_ore.keys()))
     else:
-        # Se non esiste nessun salvataggio, parte con i RIPOSI
         dati_iniziali = {giorno: ["RIPOSO" for _ in dipendenti_ore] for giorno in giorni_formattati}
         st.session_state.tabella_turni = pd.DataFrame(dati_iniziali, index=list(dipendenti_ore.keys()))
 
@@ -78,7 +74,7 @@ df_inserimento = st.session_state.tabella_turni.copy()
 st.subheader("✍️ Inserimento Turni Personale")
 
 cols_header = st.columns([1.5, 1, 1, 1, 1, 1, 1, 1])
-cols_header.write("**Dipendenti**")
+cols_header[0].write("**Dipendenti**")  # CORRETTO: adesso scrive sulla prima colonna della lista
 for i, gf in enumerate(giorni_formattati):
     cols_header[i+1].write(f"**{gf}**")
 
@@ -95,14 +91,14 @@ for dipendente in df_inserimento.index:
             lista_turni, 
             index=lista_turni.index(valore_attuale), 
             label_visibility="collapsed",
-            key=f"sel_{dipendente}_{giorno}"  # Chiave univoca per evitare conflitti
+            key=f"sel_{dipendente}_{giorno}"
         )
         df_inserimento.at[dipendente, giorno] = scelta
 
 st.session_state.tabella_turni = df_inserimento
 
 # Sezione pulsante di salvataggio permanente
-col_salva, _ = st.columns([2, 6])
+col_salva, _ = st.columns()
 if col_salva.button("💾 SALVA MODIFICHE PERMANENTI", use_container_width=True):
     df_inserimento.to_csv(FILE_SALVATAGGIO)
     st.success("🎉 Turni salvati con successo! Anche se chiudi l'app, i dati non andranno persi.")
