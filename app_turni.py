@@ -74,7 +74,7 @@ df_inserimento = st.session_state.tabella_turni.copy()
 st.subheader("✍️ Inserimento Turni Personale")
 
 cols_header = st.columns([1.5, 1, 1, 1, 1, 1, 1, 1])
-cols_header[0].write("**Dipendenti**")  # CORRETTO: adesso scrive sulla prima colonna della lista
+cols_header[0].write("**Dipendenti**")
 for i, gf in enumerate(giorni_formattati):
     cols_header[i+1].write(f"**{gf}**")
 
@@ -97,8 +97,8 @@ for dipendente in df_inserimento.index:
 
 st.session_state.tabella_turni = df_inserimento
 
-# Sezione pulsante di salvataggio permanente
-col_salva, _ = st.columns()
+# Sezione pulsante di salvataggio permanente (CORRETTO: st.columns(2) per evitare il TypeError)
+col_salva, _ = st.columns(2)
 if col_salva.button("💾 SALVA MODIFICHE PERMANENTI", use_container_width=True):
     df_inserimento.to_csv(FILE_SALVATAGGIO)
     st.success("🎉 Turni salvati con successo! Anche se chiudi l'app, i dati non andranno persi.")
