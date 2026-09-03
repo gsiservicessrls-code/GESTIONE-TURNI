@@ -4,10 +4,10 @@ import io
 import os
 from datetime import datetime, timedelta
 
-# Configurazione della pagina (Wide mode forza lo schermo intero)
+# Configurazione della pagina (Wide mode forza lo schermo intero orizzontale)
 st.set_page_config(page_title="Gestione Turni Personale", layout="wide")
 
-# File locale per il salvataggio unico permanente
+# File locale unico centralizzato per evitare frammentazioni dei dati
 FILE_SALVATAGGIO = "salvataggio_turni.csv"
 
 # ==============================================================================
@@ -62,33 +62,25 @@ def colora_tipologia_turno(valore):
 
 def aggiungi_emoji_menu(turno):
     v = turno.upper().strip()
-    # Aggiornamento pallini richiesto per assenze e riposi
-    if v == "MALATTIA": 
-        return f"🔴 {turno}"
-    elif v in ["RIPOSO", "SENZA TURNO", "FERIE", "PERMESSO RETR."]: 
-        return f"🟡 {turno}"
-    # Pallini per cantieri operativi
-    elif "SIELTE" in v: 
-        return f"🔵 {turno}"
-    elif "PALAZZO" in v or v == "PAL+TOMM 14:30/22:00": 
-        return f"🟢 {turno}"
-    elif "TOMM" in v or "TOM" in v: 
-        return f"🟤 {turno}"
+    if v == "MALATTIA": return f"🔴 {turno}"
+    elif v in ["RIPOSO", "SENZA TURNO", "FERIE", "PERMESSO RETR."]: return f"🟡 {turno}"
+    elif "SIELTE" in v: return f"🔵 {turno}"
+    elif "PALAZZO" in v or v == "PAL+TOMM 14:30/22:00": return f"🟢 {turno}"
+    elif "TOMM" in v or "TOM" in v: return f"🟤 {turno}"
     return turno
 
 # ==============================================================================
-# ⚙️ LOGICA CALCOLO DATA E CARICAMENTO
+# ⚙️ LOGICA CALCOLO DATA E CARICAMENTO FILE
 # ==============================================================================
 st.title("📅 Pianificazione Settimanale dei Turni")
 
-st.subheader("🗓️ Seleziona la Settimana di Lavoro")
+st.subheader("🗓️ Seleziona la Settimana")
 data_scelta = st.date_input("Scegli un giorno sul calendario:", datetime.strptime("31/08/2026", "%d/%m/%Y").date())
 data_inizio = data_scelta - timedelta(days=data_scelta.weekday())  
 
 giorni_nomi = ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"]
 giorni_formattati = [f"{giorno} {(data_inizio + timedelta(days=i)).strftime('%d/%m')}" for i, giorno in enumerate(giorni_nomi)]
 lista_turni = list(turni_ore.keys())
-giorno_selezionato_stringa = giorni_formattati[data_scelta.weekday()]
 
 st.info(f"📆 Settimana attiva da **Lunedì {data_inizio.strftime('%d/%m/%Y')}** a **Domenica {(data_inizio + timedelta(days=6)).strftime('%d/%m/%Y')}**")
 
@@ -114,37 +106,16 @@ if chiave_sessione not in st.session_state:
 df_inserimento = st.session_state[chiave_sessione].copy()
 
 # ==============================================================================
-# ✍️ INTERFACCIA DI INSERIMENTO
+# ✍️ GRIGLIA UNICA DI INSERIMENTO SETTIMANALE
 # ==============================================================================
-modo_vista = st.radio("Scegli la modalità di compilazione:", ["Visualizza Intera Settimana", "Visualizza Giorno Singolo"], horizontal=True)
-
-if modo_vista == "Visualizza Giorno Singolo":
-    st.subheader(f"✍️ Compilazione mirata per: {giorno_selezionato_stringa}")
-    
-    col_h1, col_h2 = st.columns([1.5, 6])
-    col_h1.write("**Dipendenti**")
-    col_h2.write(f"**Turnazione di {giorno_selezionato_stringa}**")
-    
-    for dipendente in df_inserimento.index:
-        col_nome, col_scelta = st.columns([1.5, 6])
-        col_nome.write(f"**{dipendente}**")
-        valore_attuale = df_inserimento.at[dipendente, giorno_selezionato_stringa]
-        
-        scelta = col_scelta.selectbox(
-            f"singolo_{dipendente}", lista_turni, 
-            index=lista_turni.index(valore_attuale if valore_attuale in lista_turni else "RIPOSO"), 
-            format_func=aggiungi_emoji_menu, label_visibility="collapsed", 
-            key=f"sg_{data_inizio.strftime('%Y%m%d')}_{dipendente}_{giorno_selezionato_stringa}"
-        )
-        df_inserimento.at[dipendente, giorno_selezionato_stringa] = scelta
-else:
-    st.subheader("✍️ Compilazione Griglia Settimale Completa")
-    
+with st.expander("✍️ Apri il Pannello Inserimento Turni Personale", expanded=True):
+    # Genera l'intestazione orizzontale bloccata delle colonne
     cols_header = st.columns([1.6, 1, 1, 1, 1, 1, 1, 1])
     cols_header[0].write("**Dipendenti**")
     for i, gf in enumerate(giorni_formattati): 
         cols_header[i+1].write(f"**{gf}**")
 
+    # Inserimento righe per ciascun dipendente affiancate sulla stessa linea
     for dipendente in df_inserimento.index:
         col_nome, *cols_giorni = st.columns([1.6, 1, 1, 1, 1, 1, 1, 1])
         col_nome.write(f"**{dipendente}**")
@@ -162,16 +133,42 @@ else:
 st.session_state[chiave_sessione] = df_inserimento
 
 # ==============================================================================
-# 💾 SALVATAGGIO
+# 🚨 CONTROLLO UNICITÀ CONTEMPORANEA DEI TURNI
+# ==============================================================================
+errori_rilevati = []
+voci_escluse = ["RIPOSO", "SENZA TURNO", "FERIE", "MALATTIA", "PERMESSO RETR."]
+
+for giorno in giorni_formattati:
+    turni_giorno = df_inserimento[giorno].tolist()
+    for turno in lista_turni:
+        if turno not in voci_escluse:
+            conteggio = turni_giorno.count(turno)
+            if conteggio > 1:
+                st.session_state["conflitto_rilevato"] = True
+                nomi_coinvolti = df_inserimento[df_inserimento[giorno] == turno].index.tolist()
+                nomi_puliti = ", ".join([n.split()[-1] for n in nomi_coinvolti])
+                errori_rilevati.append(f"⚠️ **{giorno.split()[0]}**: Il turno **{turno}** è duplicato tra: {nomi_puliti}.")
+
+blocco_salvataggio = False
+if errori_rilevati:
+    blocco_salvataggio = True
+    st.error("### 🛑 Rilevati conflitti di assegnazione contemporanea:")
+    for errore in errori_rilevati:
+        st.write(errore)
+
+# ==============================================================================
+# 💾 PULSANTE DI SALVATAGGIO CENTRALIZZATO
 # ==============================================================================
 st.write("")
 col_salva, _ = st.columns(2)
-if col_salva.button("💾 SALVA MODIFICHE PERMANENTI", use_container_width=True):
+if col_salva.button("💾 SALVA MODIFICHE PERMANENTI", use_container_width=True, disabled=blocco_salvataggio):
     df_inserimento.to_csv(FILE_SALVATAGGIO)
-    st.success(f"🎉 Turni salvati con successo per la settimana del {data_inizio.strftime('%d/%m/%Y')}!")
+    st.success(f"🎉 Turni salvati correttamente nel file unico permanente!")
+elif blocco_salvataggio:
+    st.warning("🔒 Assegnazioni duplicate rilevate. Correggi la griglia per sbloccare il salvataggio.")
 
 # ==============================================================================
-# 📊 CALCOLO DEI TOTALI E REPORT FINALE
+# 📊 CALCOLO DEI TOTALI E TABELLONE FINALE COLORATO
 # ==============================================================================
 ore_lavorate_totali = []
 differenze_totali = []
@@ -195,11 +192,11 @@ for giorno in giorni_formattati: riga_totale[giorno] = ""
 
 df_report.loc["ORE DIPENDENTI"] = riga_totale
 
-st.subheader("📊 Riepilogo Calcoli e Totali del Personale")
+st.subheader("📊 Riepilogo Calcoli e Totali del Personale (Tabellone Unificato)")
 df_style = df_report.style.map(colora_tipologia_turno, subset=giorni_formattati)
 st.dataframe(df_style, use_container_width=True)
 
-# Esportazione Excel
+# Generazione file Excel per il download
 st.subheader("💾 Esporta i Dati Compilati")
 output = io.BytesIO()
 with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
