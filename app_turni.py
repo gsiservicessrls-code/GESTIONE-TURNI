@@ -38,6 +38,36 @@ turni_ore = {
 }
 
 # ==============================================================================
+# 🎨 FUNZIONE CONDIZIONALE CON LA NUOVA SEQUENZA DI COLORI
+# ==============================================================================
+def colora_tipologia_turno(valore):
+    """Restituisce lo stile CSS con i colori esatti richiesti dall'utente."""
+    if not isinstance(valore, str):
+        return ""
+    
+    v = valore.upper().strip()
+    
+    # 1. Priorità alle voci SIELTE (Celeste)
+    if "SIELTE" in v:
+        return "background-color: #cceeff; color: #004466; font-weight: bold;"  # Celeste
+    
+    # 2. Voci PALAZZO (Verde)
+    elif "PALAZZO" in v or v == "PAL+TOMM 14:30/22:00":
+        return "background-color: #ccffcc; color: #006600; font-weight: bold;"  # Verde
+    
+    # 3. Voci TOMM rimanenti (Marrone Chiaro)
+    elif "TOMM" in v or "TOM" in v:
+        return "background-color: #f5e1c8; color: #5c3a21; font-weight: bold;"  # Marrone chiaro
+        
+    # 4. Stati generici (Riposi in Grigio, Assenze in Rosso)
+    elif v in ["RIPOSO", "SENZA TURNO"]:
+        return "background-color: #f2f4f7; color: #5a626a;"  # Grigio
+    elif v in ["FERIE", "MALATTIA", "PERMESSO RETR."]:
+        return "background-color: #fce8e6; color: #c5221f;"  # Rosso/Rosa chiaro
+        
+    return ""
+
+# ==============================================================================
 # ⚙️ LOGICA E DATI DELL'APPLICAZIONE
 # ==============================================================================
 st.title("📅 Pianificazione Settimanale dei Turni")
@@ -55,9 +85,7 @@ giorni_nomi = ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sab
 giorni_formattati = [f"{giorno} {(data_inizio + timedelta(days=i)).strftime('%d/%m')}" for i, giorno in enumerate(giorni_nomi)]
 lista_turni = list(turni_ore.keys())
 
-# Identificazione della stringa esatta del giorno selezionato
 giorno_selezionato_stringa = giorni_formattati[data_scelta.weekday()]
-
 st.info(f"📆 Settimana attiva da **Lunedì {data_inizio.strftime('%d/%m/%Y')}** a **Domenica {(data_inizio + timedelta(days=6)).strftime('%d/%m/%Y')}** | Giorno corrente sul calendario: **{giorno_selezionato_stringa}**")
 
 # Inizializzazione session_state legata in modo univoco alla settimana scelta
@@ -84,15 +112,14 @@ if chiave_sessione not in st.session_state:
 
 df_inserimento = st.session_state[chiave_sessione].copy()
 
-# Selettore di modalità vista (Settimana intera o giorno singolo)
+# Selettore di modalità vista
 modo_vista = st.radio("Scegli come inserire/visualizzare i dati nella griglia:", ["Visualizza Intera Settimana", "Visualizza Giorno Singolo"], horizontal=True)
 
 if modo_vista == "Visualizza Giorno Singolo":
     st.subheader(f"✍️ Inserimento Turni di: {giorno_selezionato_stringa}")
-    
     cols_header = st.columns([1.5, 6])
-    cols_header[0].write("**Dipendenti**")
-    cols_header[1].write(f"**Turno {giorno_selezionato_stringa}**")
+    cols_header.write("**Dipendenti**")
+    cols_header.write(f"**Turno {giorno_selezionato_stringa}**")
     
     for dipendente in df_inserimento.index:
         col_nome, col_scelta = st.columns([1.5, 6])
@@ -110,12 +137,10 @@ if modo_vista == "Visualizza Giorno Singolo":
             key=f"singolo_{data_inizio.strftime('%Y%m%d')}_{dipendente}_{giorno_selezionato_stringa}"
         )
         df_inserimento.at[dipendente, giorno_selezionato_stringa] = scelta
-
 else:
     st.subheader("✍️ Inserimento Turni Settimanale")
-    
     cols_header = st.columns([1.5, 1, 1, 1, 1, 1, 1, 1])
-    cols_header[0].write("**Dipendenti**")
+    cols_header.write("**Dipendenti**")
     for i, gf in enumerate(giorni_formattati):
         cols_header[i+1].write(f"**{gf}**")
 
@@ -170,8 +195,10 @@ for giorno in giorni_formattati:
 
 df_report.loc["ORE DIPENDENTI"] = riga_totale
 
-st.subheader("📊 Riepilogo Calcoli e Totali del Personale")
-st.dataframe(df_report, use_container_width=True)
+# Applicazione del tabellone colorato con la sequenza personalizzata
+st.subheader("📊 Riepilogo Calcoli e Totali del Personale (Colori Personalizzati)")
+df_style = df_report.style.applymap(colora_tipologia_turno, subset=giorni_formattati)
+st.dataframe(df_style, use_container_width=True)
 
 # Esportazione Excel
 st.subheader("💾 Esporta i Dati Compilati")
