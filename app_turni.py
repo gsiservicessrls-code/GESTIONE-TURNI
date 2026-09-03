@@ -41,31 +41,49 @@ turni_ore = {
 }
 
 # ==============================================================================
-# 🎨 FUNZIONI GRAFICHE E DI COLORE (Tabella in basso e Menu a tendina)
+# 🎨 MODIFICA I COLORI DA QUI
 # ==============================================================================
 def colora_tipologia_turno(valore):
     if pd.isna(valore) or not isinstance(valore, str): return ""
     v = valore.upper().strip()
-    if "SIELTE" in v: return "background-color: #cceeff; color: #004466; font-weight: bold;"
-    elif "PALAZZO" in v or v == "PAL+TOMM 14:30/22:00": return "background-color: #ccffcc; color: #006600; font-weight: bold;"
-    elif "TOMM" in v or "TOM" in v: return "background-color: #f5e1c8; color: #5c3a21; font-weight: bold;"
-    elif v in ["RIPOSO", "SENZA TURNO"]: return "background-color: #f2f4f7; color: #5a626a;"
-    elif v in ["FERIE", "MALATTIA", "PERMESSO RETR."]: return "background-color: #fce8e6; color: #c5221f;"
+    if v == "": return ""
+    
+    # 🔴 Rosso per Malattia
+    if v == "MALATTIA":
+        return "background-color: #fce8e6; color: #c5221f; font-weight: bold;"
+    
+    # 🟡 Giallo per Stati Assenti e Riposi
+    elif v in ["RIPOSO", "SENZA TURNO", "FERIE", "PERMESSO RETR."]:
+        return "background-color: #fef7e0; color: #b06000; font-weight: bold;"
+        
+    # 🔵 Celeste per SIELTE
+    elif "SIELTE" in v:
+        return "background-color: #cceeff; color: #004466; font-weight: bold;"
+    
+    # 🟢 Verde per PALAZZO e misti correlati
+    elif "PALAZZO" in v or v == "PAL+TOMM 14:30/22:00":
+        return "background-color: #ccffcc; color: #006600; font-weight: bold;"
+    
+    # 🟤 Marrone chiaro per TOMM
+    elif "TOMM" in v or "TOM" in v:
+        return "background-color: #f5e1c8; color: #5c3a21; font-weight: bold;"
+        
     return ""
 
 def aggiungi_emoji_menu(turno):
     v = turno.upper().strip()
-    if "SIELTE" in v: return f"🔵 {turno}"
+    if v == "MALATTIA": return f"🔴 {turno}"
+    elif v in ["RIPOSO", "SENZA TURNO", "FERIE", "PERMESSO RETR."]: return f"🟡 {turno}"
+    elif "SIELTE" in v: return f"🔵 {turno}"
     elif "PALAZZO" in v or v == "PAL+TOMM 14:30/22:00": return f"🟢 {turno}"
     elif "TOMM" in v or "TOM" in v: return f"🟤 {turno}"
-    return f"⚪ {turno}"
+    return turno
 
 # ==============================================================================
 # ⚙️ LOGICA CALCOLO DATA E CARICAMENTO
 # ==============================================================================
 st.title("📅 Pianificazione Settimanale dei Turni")
 
-# Blocco calendario ripristinato
 st.subheader("🗓️ Seleziona la Settimana di Lavoro")
 data_scelta = st.date_input("Scegli un giorno sul calendario:", datetime.strptime("31/08/2026", "%d/%m/%Y").date())
 data_inizio = data_scelta - timedelta(days=data_scelta.weekday())  
@@ -77,7 +95,7 @@ giorno_selezionato_stringa = giorni_formattati[data_scelta.weekday()]
 
 st.info(f"📆 Settimana attiva da **Lunedì {data_inizio.strftime('%d/%m/%Y')}** a **Domenica {(data_inizio + timedelta(days=6)).strftime('%d/%m/%Y')}**")
 
-# Inizializzazione session_state legata alla settimana corrente
+# Gestione dello stato di sessione della tabella
 chiave_sessione = f"tabella_turni_{data_inizio.strftime('%Y_%m_%d')}"
 
 if chiave_sessione not in st.session_state:
@@ -100,17 +118,16 @@ if chiave_sessione not in st.session_state:
 df_inserimento = st.session_state[chiave_sessione].copy()
 
 # ==============================================================================
-# ✍️ INTERFACCIA DI INSERIMENTO (Giorno Singolo o Settimana)
+# ✍️ INTERFACCIA DI INSERIMENTO CORRETTA
 # ==============================================================================
 modo_vista = st.radio("Scegli la modalità di compilazione:", ["Visualizza Intera Settimana", "Visualizza Giorno Singolo"], horizontal=True)
 
 if modo_vista == "Visualizza Giorno Singolo":
     st.subheader(f"✍️ Compilazione mirata per: {giorno_selezionato_stringa}")
     
-    # Intestazione a 2 colonne fisse per bloccare lo sdoppiamento a metà screen
-    col_h1, col_h2 = st.columns([1.5, 6])
-    col_h1.write("**Dipendenti**")
-    col_h2.write(f"**Turnazione di {giorno_selezionato_stringa}**")
+    cols_header = st.columns([1.5, 6])
+    cols_header[0].write("**Dipendenti**")
+    cols_header[1].write(f"**Turnazione di {giorno_selezionato_stringa}**")
     
     for dipendente in df_inserimento.index:
         col_nome, col_scelta = st.columns([1.5, 6])
@@ -127,7 +144,6 @@ if modo_vista == "Visualizza Giorno Singolo":
 else:
     st.subheader("✍️ Compilazione Griglia Settimale Completa")
     
-    # Intestazione a 8 colonne fisse ben distinte
     cols_header = st.columns([1.6, 1, 1, 1, 1, 1, 1, 1])
     cols_header[0].write("**Dipendenti**")
     for i, gf in enumerate(giorni_formattati): 
@@ -183,7 +199,7 @@ for giorno in giorni_formattati: riga_totale[giorno] = ""
 
 df_report.loc["ORE DIPENDENTI"] = riga_totale
 
-st.subheader("📊 Riepilogo Calcoli e Totali del Personale (Colori Richiesti)")
+st.subheader("📊 Riepilogo Calcoli e Totali del Personale")
 df_style = df_report.style.map(colora_tipologia_turno, subset=giorni_formattati)
 st.dataframe(df_style, use_container_width=True)
 
