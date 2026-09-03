@@ -48,37 +48,36 @@ def colora_tipologia_turno(valore):
     v = valore.upper().strip()
     if v == "": return ""
     
-    # Regola Rosso:
+    # Nuove regole richieste:
     if v == "MALATTIA":
-        return "background-color: #fce8e6; color: #c5221f; font-weight: bold;"
-    
-    # Regola Giallo (Incluso RIPOSO):
-    elif v in ["RIPOSO", "SENZA TURNO", "FERIE", "PERMESSO RETR."]:
-        return "background-color: #fef7e0; color: #b06000; font-weight: bold;"
+        return "background-color: #fce8e6; color: #c5221f; font-weight: bold;"  # Rosso chiaro
+    elif v in ["SENZA TURNO", "FERIE", "PERMESSO RETR."]:
+        return "background-color: #fef7e0; color: #b06000; font-weight: bold;"  # Giallo tenue
         
-    # Regole Cantieri:
+    # Regole precedenti per i cantieri e riposo:
     elif "SIELTE" in v:
-        return "background-color: #cceeff; color: #004466; font-weight: bold;"
+        return "background-color: #cceeff; color: #004466; font-weight: bold;"  # Celeste
     elif "PALAZZO" in v or v == "PAL+TOMM 14:30/22:00":
-        return "background-color: #ccffcc; color: #006600; font-weight: bold;"
+        return "background-color: #ccffcc; color: #006600; font-weight: bold;"  # Verde
     elif "TOMM" in v or "TOM" in v:
-        return "background-color: #f5e1c8; color: #5c3a21; font-weight: bold;"
-        
+        return "background-color: #f5e1c8; color: #5c3a21; font-weight: bold;"  # Marrone chiaro
+    elif v == "RIPOSO":
+        return "background-color: #f2f4f7; color: #5a626a;"  # Grigio chiaro
     return ""
 
 def aggiungi_emoji_menu(turno):
     v = turno.upper().strip()
     if v == "MALATTIA":
-        return f"🔴 {turno}"
-    elif v in ["RIPOSO", "SENZA TURNO", "FERIE", "PERMESSO RETR."]:
-        return f"🟡 {turno}"
+        return f"🔴 {turno}"  # Rosso per Malattia
+    elif v in ["SENZA TURNO", "FERIE", "PERMESSO RETR."]:
+        return f"🟡 {turno}"  # Giallo per Senza Turno, Ferie e Permessi
     elif "SIELTE" in v:
-        return f"🔵 {turno}"
+        return f"🔵 {turno}"  # Celeste per Sielte
     elif "PALAZZO" in v or v == "PAL+TOMM 14:30/22:00":
-        return f"🟢 {turno}"
+        return f"🟢 {turno}"  # Verde per Palazzo
     elif "TOMM" in v or "TOM" in v:
-        return f"🟤 {turno}"
-    return turno
+        return f"🟤 {turno}"  # Marrone per Tomm
+    return f"⚪ {turno}"      # Bianco per Riposo
 
 # ==============================================================================
 # ⚙️ LOGICA CALCOLO DATA E CARICAMENTO
@@ -146,7 +145,7 @@ else:
     st.subheader("✍️ Compilazione Griglia Settimale Completa")
     
     cols_header = st.columns([1.6, 1, 1, 1, 1, 1, 1, 1])
-    cols_header.write("**Dipendenti**")
+    cols_header[0].write("**Dipendenti**")
     for i, gf in enumerate(giorni_formattati): 
         cols_header[i+1].write(f"**{gf}**")
 
@@ -200,7 +199,7 @@ for giorno in giorni_formattati: riga_totale[giorno] = ""
 
 df_report.loc["ORE DIPENDENTI"] = riga_totale
 
-st.subheader("📊 Riepilogo Calcoli e Totali del Personale (Colori Aggiornati)")
+st.subheader("📊 Riepilogo Calcoli e Totali del Personale (Colori Personalizzati)")
 df_style = df_report.style.map(colora_tipologia_turno, subset=giorni_formattati)
 st.dataframe(df_style, use_container_width=True)
 
@@ -212,6 +211,3 @@ with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
 
 st.download_button(
     label="🟢 Scarica i turni inseriti in Excel (.xlsx)", data=output.getvalue(),
-    file_name=f"Turni_Settimana_{data_inizio.strftime('%Y_%m_%d')}.xlsx",
-    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-)
