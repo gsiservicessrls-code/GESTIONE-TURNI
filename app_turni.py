@@ -27,12 +27,6 @@ dipendenti_ore = {
     "🟢 LION": 0        
 }
 
-# ==============================================================================
-# ⚙️ LOGICA E DATI DELL'APPLICAZIONE
-# ==============================================================================
-st.title("📅 Pianificazione Settimanale dei Turni")
-st.write("Seleziona i turni dal menu. I calcoli si aggiornano in tempo reale. Usa il tasto **Salva** in fondo per memorizzare i dati.")
-
 # Elenco dei 31 turni e relativi valori orari
 turni_ore = {
     "RIPOSO": 0, "SENZA TURNO": 0, "PERMESSO RETR.": 0, "FERIE": 0, "MALATTIA": 0,
@@ -46,27 +40,40 @@ turni_ore = {
     "PAL+TOMM 14:30/22:00": 12.0
 }
 
+# ==============================================================================
+# ⚙️ LOGICA E DATI DELL'APPLICAZIONE
+# ==============================================================================
+st.title("📅 Pianificazione Settimanale dei Turni")
+st.write("Seleziona i turni dal menu. I calcoli si aggiornano in tempo reale. Usa il tasto **Salva** in fondo per memorizzare i dati.")
+
 # Generazione date (Lunedì 31/08/2026)
 data_inizio = datetime.strptime("31/08/2026", "%d/%m/%Y")
 giorni_nomi = ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"]
 giorni_formattati = [f"{giorno} {(data_inizio + timedelta(days=i)).strftime('%d/%m')}" for i, giorno in enumerate(giorni_nomi)]
 lista_turni = list(turni_ore.keys())
 
-# Inizializzazione o caricamento automatico dal file salvato
+# Inizializzazione o caricamento automatico flessibile dal file salvato
 if "tabella_turni" not in st.session_state:
+    dati_iniziali = {giorno: ["RIPOSO" for _ in dipendenti_ore] for giorno in giorni_formattati}
+    df_struttura_attuale = pd.DataFrame(dati_iniziali, index=list(dipendenti_ore.keys()))
+    
     if os.path.exists(FILE_SALVATAGGIO):
         try:
             df_caricato = pd.read_csv(FILE_SALVATAGGIO, index_col=0)
-            if list(df_caricato.index) == list(dipendenti_ore.keys()) and list(df_caricato.columns) == giorni_formattati:
-                st.session_state.tabella_turni = df_caricato
-            else:
-                raise ValueError("Struttura non corrispondente")
-        except:
-            dati_iniziali = {giorno: ["RIPOSO" for _ in dipendenti_ore] for giorno in giorni_formattati}
-            st.session_state.tabella_turni = pd.DataFrame(dati_iniziali, index=list(dipendenti_ore.keys()))
+            
+            # Sincronizza i dati cella per cella se corrispondono a dipendenti e date correnti
+            for dipendente in df_struttura_attuale.index:
+                for giorno in df_struttura_attuale.columns:
+                    if dipendente in df_caricato.index and giorno in df_caricato.columns:
+                        df_struttura_attuale.at[dipendente, giorno] = df_caricato.at[dipendente, giorno]
+            
+            st.session_state.tabella_turni = df_struttura_attuale
+            st.toast("🔄 Ultimi dati salvati caricati con successo!", icon="ℹ️")
+        except Exception as e:
+            st.error(f"⚠️ Errore nel recupero del file salvato. Creato foglio vuoto. Dettaglio: {e}")
+            st.session_state.tabella_turni = df_struttura_attuale
     else:
-        dati_iniziali = {giorno: ["RIPOSO" for _ in dipendenti_ore] for giorno in giorni_formattati}
-        st.session_state.tabella_turni = pd.DataFrame(dati_iniziali, index=list(dipendenti_ore.keys()))
+        st.session_state.tabella_turni = df_struttura_attuale
 
 df_inserimento = st.session_state.tabella_turni.copy()
 
@@ -97,7 +104,8 @@ for dipendente in df_inserimento.index:
 
 st.session_state.tabella_turni = df_inserimento
 
-# Sezione pulsante di salvataggio permanente (CORRETTO: st.columns(2) per evitare il TypeError)
+# Sezione pulsante di salvataggio permanente
+st.write("")
 col_salva, _ = st.columns(2)
 if col_salva.button("💾 SALVA MODIFICHE PERMANENTI", use_container_width=True):
     df_inserimento.to_csv(FILE_SALVATAGGIO)
@@ -126,17 +134,16 @@ riga_totale["DIFF."] = sum(differenze_totali)
 for giorno in giorni_formattati:
     riga_totale[giorno] = ""
 
-df_report.loc["ORE DIPENTI"] = riga_totale
+df_report.loc["ORE DIPENDENTI"] = riga_totale
 
 st.subheader("📊 Riepilogo Calcoli e Totali del Personale")
 st.dataframe(df_report, use_container_width=True)
 
-# Esportazione Excel tradizionale
+# Esportazione Excel
 st.subheader("💾 Esporta i Dati Compilati")
 output = io.BytesIO()
 with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
     df_report.to_excel(writer, sheet_name="Turni Settimanali")
-    writer.close()
 dati_excel = output.getvalue()
 
 st.download_button(
