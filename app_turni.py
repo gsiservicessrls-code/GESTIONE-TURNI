@@ -4,8 +4,11 @@ import io
 import os
 from datetime import datetime, timedelta
 
-# Configurazione della pagina
+# Configurazione della pagina (Wide mode forza lo schermo intero)
 st.set_page_config(page_title="Gestione Turni Personale", layout="wide")
+
+# File locale per il salvataggio unico permanente
+FILE_SALVATAGGIO = "salvataggio_turni.csv"
 
 # ==============================================================================
 # 🎨 ORDINE DEI NOMINATIVI E ORE CONTRATTUALI
@@ -38,59 +41,43 @@ turni_ore = {
 }
 
 # ==============================================================================
-# 🎨 FUNZIONE CONDIZIONALE AGGIORNATA CON LA SEQUENZA DI COLORI
+# 🎨 FUNZIONI GRAFICHE E DI COLORE (Tabella in basso e Menu a tendina)
 # ==============================================================================
 def colora_tipologia_turno(valore):
-    """Restituisce lo stile CSS con i colori esatti richiesti dall'utente."""
-    if pd.isna(valore) or not isinstance(valore, str):
-        return ""
-    
+    if pd.isna(valore) or not isinstance(valore, str): return ""
     v = valore.upper().strip()
-    if v == "":
-        return ""
-    
-    # 1. Priorità alle voci SIELTE (Celeste)
-    if "SIELTE" in v:
-        return "background-color: #cceeff; color: #004466; font-weight: bold;"
-    
-    # 2. Voci PALAZZO (Verde)
-    elif "PALAZZO" in v or v == "PAL+TOMM 14:30/22:00":
-        return "background-color: #ccffcc; color: #006600; font-weight: bold;"
-    
-    # 3. Voci TOMM rimanenti (Marrone Chiaro)
-    elif "TOMM" in v or "TOM" in v:
-        return "background-color: #f5e1c8; color: #5c3a21; font-weight: bold;"
-        
-    # 4. Stati generici (Riposi in Grigio, Assenze in Rosso)
-    elif v in ["RIPOSO", "SENZA TURNO"]:
-        return "background-color: #f2f4f7; color: #5a626a;"
-    elif v in ["FERIE", "MALATTIA", "PERMESSO RETR."]:
-        return "background-color: #fce8e6; color: #c5221f;"
-        
+    if "SIELTE" in v: return "background-color: #cceeff; color: #004466; font-weight: bold;"
+    elif "PALAZZO" in v or v == "PAL+TOMM 14:30/22:00": return "background-color: #ccffcc; color: #006600; font-weight: bold;"
+    elif "TOMM" in v or "TOM" in v: return "background-color: #f5e1c8; color: #5c3a21; font-weight: bold;"
+    elif v in ["RIPOSO", "SENZA TURNO"]: return "background-color: #f2f4f7; color: #5a626a;"
+    elif v in ["FERIE", "MALATTIA", "PERMESSO RETR."]: return "background-color: #fce8e6; color: #c5221f;"
     return ""
 
+def aggiungi_emoji_menu(turno):
+    v = turno.upper().strip()
+    if "SIELTE" in v: return f"🔵 {turno}"
+    elif "PALAZZO" in v or v == "PAL+TOMM 14:30/22:00": return f"🟢 {turno}"
+    elif "TOMM" in v or "TOM" in v: return f"🟤 {turno}"
+    return f"⚪ {turno}"
+
 # ==============================================================================
-# ⚙️ LOGICA E DATI DELL'APPLICAZIONE
+# ⚙️ LOGICA CALCOLO DATA E CARICAMENTO
 # ==============================================================================
 st.title("📅 Pianificazione Settimanale dei Turni")
-st.write("Seleziona i turni dal menu. I calcoli si aggiornano in tempo reale. Usa il tasto **Salva** in fondo per memorizzare i dati.")
 
-# Selettore della data dal calendario
-st.subheader("🗓️ Seleziona la Settimana e la Vista")
+# Blocco calendario ripristinato
+st.subheader("🗓️ Seleziona la Settimana di Lavoro")
 data_scelta = st.date_input("Scegli un giorno sul calendario:", datetime.strptime("31/08/2026", "%d/%m/%Y").date())
-
-# Calcolo automatico del Lunedì della settimana selezionata
 data_inizio = data_scelta - timedelta(days=data_scelta.weekday())  
-FILE_SALVATAGGIO = f"salvataggio_turni_{data_inizio.strftime('%Y_%m_%d')}.csv"
 
 giorni_nomi = ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"]
 giorni_formattati = [f"{giorno} {(data_inizio + timedelta(days=i)).strftime('%d/%m')}" for i, giorno in enumerate(giorni_nomi)]
 lista_turni = list(turni_ore.keys())
-
 giorno_selezionato_stringa = giorni_formattati[data_scelta.weekday()]
-st.info(f"📆 Settimana attiva da **Lunedì {data_inizio.strftime('%d/%m/%Y')}** a **Domenica {(data_inizio + timedelta(days=6)).strftime('%d/%m/%Y')}** | Giorno corrente sul calendario: **{giorno_selezionato_stringa}**")
 
-# Inizializzazione session_state legata in modo univoco alla settimana scelta
+st.info(f"📆 Settimana attiva da **Lunedì {data_inizio.strftime('%d/%m/%Y')}** a **Domenica {(data_inizio + timedelta(days=6)).strftime('%d/%m/%Y')}**")
+
+# Inizializzazione session_state legata alla settimana corrente
 chiave_sessione = f"tabella_turni_{data_inizio.strftime('%Y_%m_%d')}"
 
 if chiave_sessione not in st.session_state:
@@ -105,83 +92,83 @@ if chiave_sessione not in st.session_state:
                     if dipendente in df_caricato.index and giorno in df_caricato.columns:
                         df_struttura_attuale.at[dipendente, giorno] = df_caricato.at[dipendente, giorno]
             st.session_state[chiave_sessione] = df_struttura_attuale
-            st.toast("🔄 Ultimi dati salvati caricati con successo!", icon="ℹ️")
-        except Exception as e:
-            st.error(f"⚠️ Errore nel recupero del file salvato. Dettaglio: {e}")
+        except:
             st.session_state[chiave_sessione] = df_struttura_attuale
     else:
         st.session_state[chiave_sessione] = df_struttura_attuale
 
 df_inserimento = st.session_state[chiave_sessione].copy()
 
-# Selettore di modalità vista
-modo_vista = st.radio("Scegli come inserire/visualizzare i dati nella griglia:", ["Visualizza Intera Settimana", "Visualizza Giorno Singolo"], horizontal=True)
+# ==============================================================================
+# ✍️ INTERFACCIA DI INSERIMENTO (Giorno Singolo o Settimana)
+# ==============================================================================
+modo_vista = st.radio("Scegli la modalità di compilazione:", ["Visualizza Intera Settimana", "Visualizza Giorno Singolo"], horizontal=True)
 
 if modo_vista == "Visualizza Giorno Singolo":
-    st.subheader(f"✍️ Inserimento Turni di: {giorno_selezionato_stringa}")
-    cols_header = st.columns([1.5, 6])
-    cols_header[0].write("**Dipendenti**")
-    cols_header[1].write(f"**Turno {giorno_selezionato_stringa}**")
+    st.subheader(f"✍️ Compilazione mirata per: {giorno_selezionato_stringa}")
+    
+    # Intestazione a 2 colonne fisse per bloccare lo sdoppiamento a metà screen
+    col_h1, col_h2 = st.columns([1.5, 6])
+    col_h1.write("**Dipendenti**")
+    col_h2.write(f"**Turnazione di {giorno_selezionato_stringa}**")
     
     for dipendente in df_inserimento.index:
         col_nome, col_scelta = st.columns([1.5, 6])
         col_nome.write(f"**{dipendente}**")
-        
         valore_attuale = df_inserimento.at[dipendente, giorno_selezionato_stringa]
-        if valore_attuale not in lista_turni:
-            valore_attuale = "RIPOSO"
-            
+        
         scelta = col_scelta.selectbox(
-            f"singolo_{dipendente}_{giorno_selezionato_stringa}", 
-            lista_turni, 
-            index=lista_turni.index(valore_attuale), 
-            label_visibility="collapsed",
-            key=f"singolo_{data_inizio.strftime('%Y%m%d')}_{dipendente}_{giorno_selezionato_stringa}"
+            f"singolo_{dipendente}", lista_turni, 
+            index=lista_turni.index(valore_attuale if valore_attuale in lista_turni else "RIPOSO"), 
+            format_func=aggiungi_emoji_menu, label_visibility="collapsed", 
+            key=f"sg_{data_inizio.strftime('%Y%m%d')}_{dipendente}_{giorno_selezionato_stringa}"
         )
         df_inserimento.at[dipendente, giorno_selezionato_stringa] = scelta
 else:
-    st.subheader("✍️ Inserimento Turni Settimanale")
-    cols_header = st.columns([1.5, 1, 1, 1, 1, 1, 1, 1])
+    st.subheader("✍️ Compilazione Griglia Settimale Completa")
+    
+    # Intestazione a 8 colonne fisse ben distinte
+    cols_header = st.columns([1.6, 1, 1, 1, 1, 1, 1, 1])
     cols_header[0].write("**Dipendenti**")
-    for i, gf in enumerate(giorni_formattati):
+    for i, gf in enumerate(giorni_formattati): 
         cols_header[i+1].write(f"**{gf}**")
 
     for dipendente in df_inserimento.index:
-        col_nome, *cols_giorni = st.columns([1.5, 1, 1, 1, 1, 1, 1, 1])
+        col_nome, *cols_giorni = st.columns([1.6, 1, 1, 1, 1, 1, 1, 1])
         col_nome.write(f"**{dipendente}**")
         for i, giorno in enumerate(giorni_formattati):
             valore_attuale = df_inserimento.at[dipendente, giorno]
-            if valore_attuale not in lista_turni:
-                valore_attuale = "RIPOSO"
             
             scelta = cols_giorni[i].selectbox(
-                f"{giorno}-{dipendente}", 
-                lista_turni, 
-                index=lista_turni.index(valore_attuale), 
-                label_visibility="collapsed",
-                key=f"settimanale_{data_inizio.strftime('%Y%m%d')}_{dipendente}_{giorno}"
+                f"{giorno}-{dipendente}", lista_turni, 
+                index=lista_turni.index(valore_attuale if valore_attuale in lista_turni else "RIPOSO"), 
+                format_func=aggiungi_emoji_menu, label_visibility="collapsed", 
+                key=f"wk_{data_inizio.strftime('%Y%m%d')}_{dipendente}_{giorno}"
             )
             df_inserimento.at[dipendente, giorno] = scelta
 
 st.session_state[chiave_sessione] = df_inserimento
 
-# Sezione pulsante di salvataggio permanente
+# ==============================================================================
+# 💾 SALVATAGGIO
+# ==============================================================================
 st.write("")
 col_salva, _ = st.columns(2)
 if col_salva.button("💾 SALVA MODIFICHE PERMANENTI", use_container_width=True):
     df_inserimento.to_csv(FILE_SALVATAGGIO)
     st.success(f"🎉 Turni salvati con successo per la settimana del {data_inizio.strftime('%d/%m/%Y')}!")
 
-# Calcolo dei totali orari
+# ==============================================================================
+# 📊 CALCOLO DEI TOTALI E REPORT FINALE
+# ==============================================================================
 ore_lavorate_totali = []
 differenze_totali = []
 
 for dipendente in df_inserimento.index:
     ore_contrattuali = dipendenti_ore[dipendente]
     somma_ore_lavorate = sum(turni_ore[df_inserimento.at[dipendente, giorno]] for giorno in giorni_formattati)
-    differenza = somma_ore_lavorate - ore_contrattuali
     ore_lavorate_totali.append(somma_ore_lavorate)
-    differenze_totali.append(differenza)
+    differenze_totali.append(somma_ore_lavorate - ore_contrattuali)
 
 df_report = df_inserimento.copy()
 df_report.insert(0, "ORE CONTR.", [dipendenti_ore[d] for d in df_report.index])
@@ -192,13 +179,11 @@ riga_totale = pd.Series(index=df_report.columns, dtype=object)
 riga_totale["ORE CONTR."] = sum(dipendenti_ore.values())
 riga_totale["ORE LAV."] = sum(ore_lavorate_totali)
 riga_totale["DIFF."] = sum(differenze_totali)
-for giorno in giorni_formattati:
-    riga_totale[giorno] = ""
+for giorno in giorni_formattati: riga_totale[giorno] = ""
 
 df_report.loc["ORE DIPENDENTI"] = riga_totale
 
-# Applicazione del tabellone colorato con il metodo .map() corretto
-st.subheader("📊 Riepilogo Calcoli e Totali del Personale (Colori Personalizzati)")
+st.subheader("📊 Riepilogo Calcoli e Totali del Personale (Colori Richiesti)")
 df_style = df_report.style.map(colora_tipologia_turno, subset=giorni_formattati)
 st.dataframe(df_style, use_container_width=True)
 
@@ -207,11 +192,9 @@ st.subheader("💾 Esporta i Dati Compilati")
 output = io.BytesIO()
 with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
     df_report.to_excel(writer, sheet_name="Turni Settimanali")
-dati_excel = output.getvalue()
 
 st.download_button(
-    label="🟢 Scarica i turni inseriti in Excel (.xlsx)",
-    data=dati_excel,
+    label="🟢 Scarica i turni inseriti in Excel (.xlsx)", data=output.getvalue(),
     file_name=f"Turni_Settimana_{data_inizio.strftime('%Y_%m_%d')}.xlsx",
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
