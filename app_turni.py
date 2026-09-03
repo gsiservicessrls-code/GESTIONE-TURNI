@@ -38,14 +38,16 @@ turni_ore = {
 }
 
 # ==============================================================================
-# 🎨 FUNZIONE CONDIZIONALE CON LA NUOVA SEQUENZA DI COLORI
+# 🎨 FUNZIONE CONDIZIONALE AGGIORNATA CON LA SEQUENZA DI COLORI
 # ==============================================================================
 def colora_tipologia_turno(valore):
     """Restituisce lo stile CSS con i colori esatti richiesti dall'utente."""
-    if not isinstance(valore, str):
+    if pd.isna(valore) or not isinstance(valore, str):
         return ""
     
     v = valore.upper().strip()
+    if v == "":
+        return ""
     
     # 1. Priorità alle voci SIELTE (Celeste)
     if "SIELTE" in v:
@@ -195,9 +197,9 @@ for giorno in giorni_formattati:
 
 df_report.loc["ORE DIPENDENTI"] = riga_totale
 
-# Applicazione del tabellone colorato con la sequenza personalizzata
+# Applicazione del tabellone colorato con il metodo .map() corretto
 st.subheader("📊 Riepilogo Calcoli e Totali del Personale (Colori Personalizzati)")
-df_style = df_report.style.applymap(colora_tipologia_turno, subset=giorni_formattati)
+df_style = df_report.style.map(colora_tipologia_turno, subset=giorni_formattati)
 st.dataframe(df_style, use_container_width=True)
 
 # Esportazione Excel
