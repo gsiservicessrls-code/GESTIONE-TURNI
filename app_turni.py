@@ -41,49 +41,31 @@ turni_ore = {
 }
 
 # ==============================================================================
-# 🎨 FUNZIONI GRAFICHE E DI COLORE AGGIORNATE
+# 🎨 FUNZIONI GRAFICHE E DI COLORE (Tabella in basso e Menu a tendina)
 # ==============================================================================
 def colora_tipologia_turno(valore):
     if pd.isna(valore) or not isinstance(valore, str): return ""
     v = valore.upper().strip()
-    if v == "": return ""
-    
-    # Nuove regole richieste:
-    if v == "MALATTIA":
-        return "background-color: #fce8e6; color: #c5221f; font-weight: bold;"  # Rosso chiaro
-    elif v in ["SENZA TURNO", "FERIE", "PERMESSO RETR."]:
-        return "background-color: #fef7e0; color: #b06000; font-weight: bold;"  # Giallo tenue
-        
-    # Regole precedenti per i cantieri e riposo:
-    elif "SIELTE" in v:
-        return "background-color: #cceeff; color: #004466; font-weight: bold;"  # Celeste
-    elif "PALAZZO" in v or v == "PAL+TOMM 14:30/22:00":
-        return "background-color: #ccffcc; color: #006600; font-weight: bold;"  # Verde
-    elif "TOMM" in v or "TOM" in v:
-        return "background-color: #f5e1c8; color: #5c3a21; font-weight: bold;"  # Marrone chiaro
-    elif v == "RIPOSO":
-        return "background-color: #f2f4f7; color: #5a626a;"  # Grigio chiaro
+    if "SIELTE" in v: return "background-color: #cceeff; color: #004466; font-weight: bold;"
+    elif "PALAZZO" in v or v == "PAL+TOMM 14:30/22:00": return "background-color: #ccffcc; color: #006600; font-weight: bold;"
+    elif "TOMM" in v or "TOM" in v: return "background-color: #f5e1c8; color: #5c3a21; font-weight: bold;"
+    elif v in ["RIPOSO", "SENZA TURNO"]: return "background-color: #f2f4f7; color: #5a626a;"
+    elif v in ["FERIE", "MALATTIA", "PERMESSO RETR."]: return "background-color: #fce8e6; color: #c5221f;"
     return ""
 
 def aggiungi_emoji_menu(turno):
     v = turno.upper().strip()
-    if v == "MALATTIA":
-        return f"🔴 {turno}"  # Rosso per Malattia
-    elif v in ["SENZA TURNO", "FERIE", "PERMESSO RETR."]:
-        return f"🟡 {turno}"  # Giallo per Senza Turno, Ferie e Permessi
-    elif "SIELTE" in v:
-        return f"🔵 {turno}"  # Celeste per Sielte
-    elif "PALAZZO" in v or v == "PAL+TOMM 14:30/22:00":
-        return f"🟢 {turno}"  # Verde per Palazzo
-    elif "TOMM" in v or "TOM" in v:
-        return f"🟤 {turno}"  # Marrone per Tomm
-    return f"⚪ {turno}"      # Bianco per Riposo
+    if "SIELTE" in v: return f"🔵 {turno}"
+    elif "PALAZZO" in v or v == "PAL+TOMM 14:30/22:00": return f"🟢 {turno}"
+    elif "TOMM" in v or "TOM" in v: return f"🟤 {turno}"
+    return f"⚪ {turno}"
 
 # ==============================================================================
 # ⚙️ LOGICA CALCOLO DATA E CARICAMENTO
 # ==============================================================================
 st.title("📅 Pianificazione Settimanale dei Turni")
 
+# Blocco calendario ripristinato
 st.subheader("🗓️ Seleziona la Settimana di Lavoro")
 data_scelta = st.date_input("Scegli un giorno sul calendario:", datetime.strptime("31/08/2026", "%d/%m/%Y").date())
 data_inizio = data_scelta - timedelta(days=data_scelta.weekday())  
@@ -125,6 +107,7 @@ modo_vista = st.radio("Scegli la modalità di compilazione:", ["Visualizza Inter
 if modo_vista == "Visualizza Giorno Singolo":
     st.subheader(f"✍️ Compilazione mirata per: {giorno_selezionato_stringa}")
     
+    # Intestazione a 2 colonne fisse per bloccare lo sdoppiamento a metà screen
     col_h1, col_h2 = st.columns([1.5, 6])
     col_h1.write("**Dipendenti**")
     col_h2.write(f"**Turnazione di {giorno_selezionato_stringa}**")
@@ -144,6 +127,7 @@ if modo_vista == "Visualizza Giorno Singolo":
 else:
     st.subheader("✍️ Compilazione Griglia Settimale Completa")
     
+    # Intestazione a 8 colonne fisse ben distinte
     cols_header = st.columns([1.6, 1, 1, 1, 1, 1, 1, 1])
     cols_header[0].write("**Dipendenti**")
     for i, gf in enumerate(giorni_formattati): 
@@ -199,7 +183,7 @@ for giorno in giorni_formattati: riga_totale[giorno] = ""
 
 df_report.loc["ORE DIPENDENTI"] = riga_totale
 
-st.subheader("📊 Riepilogo Calcoli e Totali del Personale (Colori Personalizzati)")
+st.subheader("📊 Riepilogo Calcoli e Totali del Personale (Colori Richiesti)")
 df_style = df_report.style.map(colora_tipologia_turno, subset=giorni_formattati)
 st.dataframe(df_style, use_container_width=True)
 
@@ -211,3 +195,6 @@ with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
 
 st.download_button(
     label="🟢 Scarica i turni inseriti in Excel (.xlsx)", data=output.getvalue(),
+    file_name=f"Turni_Settimana_{data_inizio.strftime('%Y_%m_%d')}.xlsx",
+    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+)
