@@ -1,4 +1,4 @@
-import streamlit as st
+mport streamlit as st
 import pandas as pd
 import io
 import os
@@ -6,9 +6,6 @@ from datetime import datetime, timedelta
 
 # Configurazione della pagina
 st.set_page_config(page_title="Gestione Turni Personale", layout="wide")
-
-# File locale per il salvataggio permanente
-FILE_SALVATAGGIO = "salvataggio_turni.csv"
 
 # ==============================================================================
 # 🎨 ORDINE DEI NOMINATIVI E ORE CONTRATTUALI
@@ -46,14 +43,24 @@ turni_ore = {
 st.title("📅 Pianificazione Settimanale dei Turni")
 st.write("Seleziona i turni dal menu. I calcoli si aggiornano in tempo reale. Usa il tasto **Salva** in fondo per memorizzare i dati.")
 
-# Generazione date fisse (Lunedì 31/08/2026)
-data_inizio = datetime.strptime("31/08/2026", "%d/%m/%Y")
+# Selettore della data dal calendario (Default impostato sul 31/08/2026)
+st.subheader("🗓️ Seleziona la Settimana")
+data_scelta = st.date_input("Scegli un giorno sul calendario:", datetime.strptime("31/08/2026", "%d/%m/%Y").date())
+
+# Calcolo del Lunedì della settimana selezionata
+data_inizio = data_scelta - timedelta(days=data_scelta.weekday())  
+FILE_SALVATAGGIO = f"salvataggio_turni_{data_inizio.strftime('%Y_%m_%d')}.csv"
+
 giorni_nomi = ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"]
 giorni_formattati = [f"{giorno} {(data_inizio + timedelta(days=i)).strftime('%d/%m')}" for i, giorno in enumerate(giorni_nomi)]
 lista_turni = list(turni_ore.keys())
 
-# Inizializzazione o caricamento automatico flessibile dal file salvato
-if "tabella_turni" not in st.session_state:
+st.info(f"📆 Settimana attiva da **Lunedì {data_inizio.strftime('%d/%m/%Y')}** a **Domenica {(data_inizio + timedelta(days=6)).strftime('%d/%m/%Y')}**")
+
+# Inizializzazione session_state legata in modo univoco alla settimana scelta
+chiave_sessione = f"tabella_turni_{data_inizio.strftime('%Y_%m_%d')}"
+
+if chiave_sessione not in st.session_state:
     dati_iniziali = {giorno: ["RIPOSO" for _ in dipendenti_ore] for giorno in giorni_formattati}
     df_struttura_attuale = pd.DataFrame(dati_iniziali, index=list(dipendenti_ore.keys()))
     
@@ -67,17 +74,17 @@ if "tabella_turni" not in st.session_state:
                     if dipendente in df_caricato.index and giorno in df_caricato.columns:
                         df_struttura_attuale.at[dipendente, giorno] = df_caricato.at[dipendente, giorno]
             
-            st.session_state.tabella_turni = df_struttura_attuale
+            st.session_state[chiave_sessione] = df_struttura_attuale
             st.toast("🔄 Ultimi dati salvati caricati con successo!", icon="ℹ️")
         except Exception as e:
             st.error(f"⚠️ Errore nel recupero del file salvato. Creato foglio vuoto. Dettaglio: {e}")
-            st.session_state.tabella_turni = df_struttura_attuale
+            st.session_state[chiave_sessione] = df_struttura_attuale
     else:
-        st.session_state.tabella_turni = df_struttura_attuale
+        st.session_state[chiave_sessione] = df_struttura_attuale
 
-df_inserimento = st.session_state.tabella_turni.copy()
+df_inserimento = st.session_state[chiave_sessione].copy()
 
-# Interfaccia di inserimento
+# Interfaccia di inserimento a griglia
 st.subheader("✍️ Inserimento Turni Personale")
 
 cols_header = st.columns([1.5, 1, 1, 1, 1, 1, 1, 1])
@@ -98,20 +105,20 @@ for dipendente in df_inserimento.index:
             lista_turni, 
             index=lista_turni.index(valore_attuale), 
             label_visibility="collapsed",
-            key=f"sel_{dipendente}_{giorno}"
+            key=f"sel_{data_inizio.strftime('%Y%m%d')}_{dipendente}_{giorno}"
         )
         df_inserimento.at[dipendente, giorno] = scelta
 
-st.session_state.tabella_turni = df_inserimento
+st.session_state[chiave_sessione] = df_inserimento
 
 # Sezione pulsante di salvataggio permanente
 st.write("")
 col_salva, _ = st.columns(2)
 if col_salva.button("💾 SALVA MODIFICHE PERMANENTI", use_container_width=True):
     df_inserimento.to_csv(FILE_SALVATAGGIO)
-    st.success("🎉 Turni salvati con successo! Anche se chiudi l'app, i dati non andranno persi.")
+    st.success(f"🎉 Turni salvati con successo per la settimana del {data_inizio.strftime('%d/%m/%Y')}!")
 
-# Calcolo dei totali
+# Calcolo dei totali orari
 ore_lavorate_totali = []
 differenze_totali = []
 
@@ -149,6 +156,6 @@ dati_excel = output.getvalue()
 st.download_button(
     label="🟢 Scarica i turni inseriti in Excel (.xlsx)",
     data=dati_excel,
-    file_name="Turni_Settimanali_Calcolati.xlsx",
+    file_name=f"Turni_Settimana_{data_inizio.strftime('%Y_%m_%d')}.xlsx",
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
