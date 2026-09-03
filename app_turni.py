@@ -7,9 +7,6 @@ from datetime import datetime, timedelta
 # Configurazione della pagina
 st.set_page_config(page_title="Gestione Turni Personale", layout="wide")
 
-# File locale per il salvataggio permanente
-FILE_SALVATAGGIO = "salvataggio_turni.csv"
-
 # ==============================================================================
 # 🎨 ORDINE DEI NOMINATIVI E ORE CONTRATTUALI
 # ==============================================================================
@@ -43,84 +40,119 @@ turni_ore = {
 # ==============================================================================
 # ⚙️ LOGICA E DATI DELL'APPLICAZIONE
 # ==============================================================================
-st.title("📅 Pianificazione Settimanale dei Turni")
-st.write("Seleziona i turni dal menu. I calcoli si aggiornano in tempo reale. Usa il tasto **Salva** in fondo per memorizzare i dati.")
+st.title("📅 Pianificazione e Ricerca Turni Personale")
 
-# Generazione date (Lunedì 31/08/2026)
-data_inizio = datetime.strptime("31/08/2026", "%d/%m/%Y")
+# 1. SELEZIONE DELLA DATA
+st.subheader("🗓️ Seleziona il Giorno o la Settimana")
+data_scelta = st.date_input("Scegli un giorno sul calendario:", datetime.strptime("31/08/2026", "%d/%m/%Y").date())
+
+# Calcolo automatico della settimana di appartenenza (Lunedì-Domenica)
+data_inizio = data_scelta - timedelta(days=data_scelta.weekday())  
+FILE_SALVATAGGIO = f"salvataggio_turni_{data_inizio.strftime('%Y_%m_%d')}.csv"
+
 giorni_nomi = ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"]
 giorni_formattati = [f"{giorno} {(data_inizio + timedelta(days=i)).strftime('%d/%m')}" for i, giorno in enumerate(giorni_nomi)]
 lista_turni = list(turni_ore.keys())
 
-# Inizializzazione o caricamento automatico flessibile dal file salvato
-if "tabella_turni" not in st.session_state:
+# Trova la stringa esatta del giorno selezionato nella struttura dati della settimana
+giorno_selezionato_stringa = giorni_formattati[data_scelta.weekday()]
+
+st.info(f"📆 Settimana: **da Lunedì {data_inizio.strftime('%d/%m/%Y')} a Domenica {(data_inizio + timedelta(days=6)).strftime('%d/%m/%Y')}** | Giorno selezionato: **{giorno_selezionato_stringa}**")
+
+# Inizializzazione session_state per la settimana corrente
+chiave_sessione = f"tabella_turni_{data_inizio.strftime('%Y_%m_%d')}"
+
+if chiave_sessione not in st.session_state:
     dati_iniziali = {giorno: ["RIPOSO" for _ in dipendenti_ore] for giorno in giorni_formattati}
     df_struttura_attuale = pd.DataFrame(dati_iniziali, index=list(dipendenti_ore.keys()))
     
     if os.path.exists(FILE_SALVATAGGIO):
         try:
             df_caricato = pd.read_csv(FILE_SALVATAGGIO, index_col=0)
-            
-            # Sincronizza i dati cella per cella se corrispondono a dipendenti e date correnti
             for dipendente in df_struttura_attuale.index:
                 for giorno in df_struttura_attuale.columns:
                     if dipendente in df_caricato.index and giorno in df_caricato.columns:
                         df_struttura_attuale.at[dipendente, giorno] = df_caricato.at[dipendente, giorno]
-            
-            st.session_state.tabella_turni = df_struttura_attuale
-            st.toast("🔄 Ultimi dati salvati caricati con successo!", icon="ℹ️")
+            st.session_state[chiave_sessione] = df_struttura_attuale
         except Exception as e:
-            st.error(f"⚠️ Errore nel recupero del file salvato. Creato foglio vuoto. Dettaglio: {e}")
-            st.session_state.tabella_turni = df_struttura_attuale
+            st.session_state[chiave_sessione] = df_struttura_attuale
     else:
-        st.session_state.tabella_turni = df_struttura_attuale
+        st.session_state[chiave_sessione] = df_struttura_attuale
 
-df_inserimento = st.session_state.tabella_turni.copy()
+df_inserimento = st.session_state[chiave_sessione].copy()
 
-# Interfaccia di inserimento
-st.subheader("✍️ Inserimento Turni Personale")
+# 2. SEZIONE NAVIGAZIONE: SCELTA VISTA (GIORNO SINGOLO O SETTIMANA CORRENTE)
+modo_vista = st.radio("Scegli come visualizzare/inserire i dati:", ["Visualizza Giorno Singolo", "Visualizza Intera Settimana"], horizontal=True)
 
-cols_header = st.columns([1.5, 1, 1, 1, 1, 1, 1, 1])
-cols_header[0].write("**Dipendenti**")
-for i, gf in enumerate(giorni_formattati):
-    cols_header[i+1].write(f"**{gf}**")
-
-for dipendente in df_inserimento.index:
-    col_nome, *cols_giorni = st.columns([1.5, 1, 1, 1, 1, 1, 1, 1])
-    col_nome.write(f"**{dipendente}**")
-    for i, giorno in enumerate(giorni_formattati):
-        valore_attuale = df_inserimento.at[dipendente, giorno]
+if modo_vista == "Visualizza Giorno Singolo":
+    st.subheader(f"🔍 Turni di: {giorno_selezionato_stringa}")
+    
+    # Intestazione Colonne per il singolo giorno
+    cols_g = st.columns([2, 3])
+    cols_g[0].write("**Dipendente**")
+    cols_g[1].write(f"**Turno Assegnato**")
+    
+    for dipendente in df_inserimento.index:
+        col_n, col_s = st.columns([2, 3])
+        col_n.write(f"**{dipendente}**")
+        
+        valore_attuale = df_inserimento.at[dipendente, giorno_selezionato_stringa]
         if valore_attuale not in lista_turni:
             valore_attuale = "RIPOSO"
-        
-        scelta = cols_giorni[i].selectbox(
-            f"{giorno}-{dipendente}", 
-            lista_turni, 
-            index=lista_turni.index(valore_attuale), 
+            
+        scelta = col_s.selectbox(
+            f"Singolo-{dipendente}",
+            lista_turni,
+            index=lista_turni.index(valore_attuale),
             label_visibility="collapsed",
-            key=f"sel_{dipendente}_{giorno}"
+            key=f"singolo_{data_inizio.strftime('%Y%m%d')}_{dipendente}_{giorno_selezionato_stringa}"
         )
-        df_inserimento.at[dipendente, giorno] = scelta
+        df_inserimento.at[dipendente, giorno_selezionato_stringa] = scelta
 
-st.session_state.tabella_turni = df_inserimento
+else:
+    st.subheader("✍️ Inserimento Turni Settimanale")
+    cols_header = st.columns([1.5, 1, 1, 1, 1, 1, 1, 1])
+    cols_header[0].write("**Dipendenti**")
+    for i, gf in enumerate(giorni_formattati):
+        cols_header[i+1].write(f"**{gf}**")
 
-# Sezione pulsante di salvataggio permanente
+    for dipendente in df_inserimento.index:
+        col_nome, *cols_giorni = st.columns([1.5, 1, 1, 1, 1, 1, 1, 1])
+        col_nome.write(f"**{dipendente}**")
+        for i, giorno in enumerate(giorni_formattati):
+            valore_attuale = df_inserimento.at[dipendente, giorno]
+            if valore_attuale not in lista_turni:
+                valore_attuale = "RIPOSO"
+            
+            scelta = cols_giorni[i].selectbox(
+                f"{giorno}-{dipendente}", 
+                lista_turni, 
+                index=lista_turni.index(valore_attuale), 
+                label_visibility="collapsed",
+                key=f"settimanale_{data_inizio.strftime('%Y%m%d')}_{dipendente}_{giorno}"
+            )
+            df_inserimento.at[dipendente, giorno] = scelta
+
+# Sincronizza lo stato globale
+st.session_state[chiave_sessione] = df_inserimento
+
+# Pulsante di salvataggio permanente (valido per entrambe le viste)
 st.write("")
 col_salva, _ = st.columns(2)
 if col_salva.button("💾 SALVA MODIFICHE PERMANENTI", use_container_width=True):
     df_inserimento.to_csv(FILE_SALVATAGGIO)
-    st.success("🎉 Turni salvati con successo! Anche se chiudi l'app, i dati non andranno persi.")
+    st.success(f"🎉 Dati aggiornati e salvati con successo per la settimana del {data_inizio.strftime('%d/%m/%Y')}!")
 
-# Calcolo dei totali
+# 3. CALCOLO DEI TOTALI (Si aggiorna in tempo reale indipendentemente dalla vista scelta)
 ore_lavorate_totali = []
 differenze_totali = []
 
 for dipendente in df_inserimento.index:
     ore_contrattuali = dipendenti_ore[dipendente]
     somma_ore_lavorate = sum(turni_ore[df_inserimento.at[dipendente, giorno]] for giorno in giorni_formattati)
-    differenza = somma_ore_lavorate - ore_contrattuali
+    difference = somma_ore_lavorate - ore_contrattuali
     ore_lavorate_totali.append(somma_ore_lavorate)
-    differenze_totali.append(differenza)
+    differenze_totali.append(difference)
 
 df_report = df_inserimento.copy()
 df_report.insert(0, "ORE CONTR.", [dipendenti_ore[d] for d in df_report.index])
@@ -136,19 +168,19 @@ for giorno in giorni_formattati:
 
 df_report.loc["ORE DIPENDENTI"] = riga_totale
 
-st.subheader("📊 Riepilogo Calcoli e Totali del Personale")
+st.subheader("📊 Riepilogo Calcoli e Totali della Settimana")
 st.dataframe(df_report, use_container_width=True)
 
 # Esportazione Excel
 st.subheader("💾 Esporta i Dati Compilati")
 output = io.BytesIO()
 with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
-    df_report.to_excel(writer, sheet_name="Turni Settimanali")
+    df_report.to_excel(writer, sheet_name=f"Turni_{data_inizio.strftime('%d_%m')}")
 dati_excel = output.getvalue()
 
 st.download_button(
     label="🟢 Scarica i turni inseriti in Excel (.xlsx)",
     data=dati_excel,
-    file_name="Turni_Settimanali_Calcolati.xlsx",
+    file_name=f"Turni_Settimana_{data_inizio.strftime('%Y_%m_%d')}.xlsx",
     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 )
