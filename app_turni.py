@@ -43,11 +43,11 @@ turni_ore = {
 st.title("📅 Pianificazione Settimanale dei Turni")
 st.write("Seleziona i turni dal menu. I calcoli si aggiornano in tempo reale. Usa il tasto **Salva** in fondo per memorizzare i dati.")
 
-# Selettore della data dal calendario (Default impostato sul 31/08/2026)
-st.subheader("🗓️ Seleziona la Settimana")
+# Selettore della data dal calendario
+st.subheader("🗓️ Seleziona la Settimana e la Vista")
 data_scelta = st.date_input("Scegli un giorno sul calendario:", datetime.strptime("31/08/2026", "%d/%m/%Y").date())
 
-# Calcolo del Lunedì della settimana selezionata
+# Calcolo automatico del Lunedì della settimana selezionata
 data_inizio = data_scelta - timedelta(days=data_scelta.weekday())  
 FILE_SALVATAGGIO = f"salvataggio_turni_{data_inizio.strftime('%Y_%m_%d')}.csv"
 
@@ -55,7 +55,10 @@ giorni_nomi = ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sab
 giorni_formattati = [f"{giorno} {(data_inizio + timedelta(days=i)).strftime('%d/%m')}" for i, giorno in enumerate(giorni_nomi)]
 lista_turni = list(turni_ore.keys())
 
-st.info(f"📆 Settimana attiva da **Lunedì {data_inizio.strftime('%d/%m/%Y')}** a **Domenica {(data_inizio + timedelta(days=6)).strftime('%d/%m/%Y')}**")
+# Identificazione della stringa esatta del giorno selezionato
+giorno_selezionato_stringa = giorni_formattati[data_scelta.weekday()]
+
+st.info(f"📆 Settimana attiva da **Lunedì {data_inizio.strftime('%d/%m/%Y')}** a **Domenica {(data_inizio + timedelta(days=6)).strftime('%d/%m/%Y')}** | Giorno corrente sul calendario: **{giorno_selezionato_stringa}**")
 
 # Inizializzazione session_state legata in modo univoco alla settimana scelta
 chiave_sessione = f"tabella_turni_{data_inizio.strftime('%Y_%m_%d')}"
@@ -67,47 +70,71 @@ if chiave_sessione not in st.session_state:
     if os.path.exists(FILE_SALVATAGGIO):
         try:
             df_caricato = pd.read_csv(FILE_SALVATAGGIO, index_col=0)
-            
-            # Sincronizza i dati cella per cella se corrispondono a dipendenti e date correnti
             for dipendente in df_struttura_attuale.index:
                 for giorno in df_struttura_attuale.columns:
                     if dipendente in df_caricato.index and giorno in df_caricato.columns:
                         df_struttura_attuale.at[dipendente, giorno] = df_caricato.at[dipendente, giorno]
-            
             st.session_state[chiave_sessione] = df_struttura_attuale
             st.toast("🔄 Ultimi dati salvati caricati con successo!", icon="ℹ️")
         except Exception as e:
-            st.error(f"⚠️ Errore nel recupero del file salvato. Creato foglio vuoto. Dettaglio: {e}")
+            st.error(f"⚠️ Errore nel recupero del file salvato. Dettaglio: {e}")
             st.session_state[chiave_sessione] = df_struttura_attuale
     else:
         st.session_state[chiave_sessione] = df_struttura_attuale
 
 df_inserimento = st.session_state[chiave_sessione].copy()
 
-# Interfaccia di inserimento a griglia
-st.subheader("✍️ Inserimento Turni Personale")
+# Selettore di modalità vista (Settimana intera o giorno singolo)
+modo_vista = st.radio("Scegli come inserire/visualizzare i dati nella griglia:", ["Visualizza Intera Settimana", "Visualizza Giorno Singolo"], horizontal=True)
 
-cols_header = st.columns([1.5, 1, 1, 1, 1, 1, 1, 1])
-cols_header[0].write("**Dipendenti**")
-for i, gf in enumerate(giorni_formattati):
-    cols_header[i+1].write(f"**{gf}**")
-
-for dipendente in df_inserimento.index:
-    col_nome, *cols_giorni = st.columns([1.5, 1, 1, 1, 1, 1, 1, 1])
-    col_nome.write(f"**{dipendente}**")
-    for i, giorno in enumerate(giorni_formattati):
-        valore_attuale = df_inserimento.at[dipendente, giorno]
+if modo_vista == "Visualizza Giorno Singolo":
+    st.subheader(f"✍️ Inserimento Turni di: {giorno_selezionato_stringa}")
+    
+    cols_header = st.columns([1.5, 6])
+    cols_header[0].write("**Dipendenti**")
+    cols_header[1].write(f"**Turno {giorno_selezionato_stringa}**")
+    
+    for dipendente in df_inserimento.index:
+        col_nome, col_scelta = st.columns([1.5, 6])
+        col_nome.write(f"**{dipendente}**")
+        
+        valore_attuale = df_inserimento.at[dipendente, giorno_selezionato_stringa]
         if valore_attuale not in lista_turni:
             valore_attuale = "RIPOSO"
-        
-        scelta = cols_giorni[i].selectbox(
-            f"{giorno}-{dipendente}", 
+            
+        scelta = col_scelta.selectbox(
+            f"singolo_{dipendente}_{giorno_selezionato_stringa}", 
             lista_turni, 
             index=lista_turni.index(valore_attuale), 
             label_visibility="collapsed",
-            key=f"sel_{data_inizio.strftime('%Y%m%d')}_{dipendente}_{giorno}"
+            key=f"singolo_{data_inizio.strftime('%Y%m%d')}_{dipendente}_{giorno_selezionato_stringa}"
         )
-        df_inserimento.at[dipendente, giorno] = scelta
+        df_inserimento.at[dipendente, giorno_selezionato_stringa] = scelta
+
+else:
+    st.subheader("✍️ Inserimento Turni Settimanale")
+    
+    cols_header = st.columns([1.5, 1, 1, 1, 1, 1, 1, 1])
+    cols_header[0].write("**Dipendenti**")
+    for i, gf in enumerate(giorni_formattati):
+        cols_header[i+1].write(f"**{gf}**")
+
+    for dipendente in df_inserimento.index:
+        col_nome, *cols_giorni = st.columns([1.5, 1, 1, 1, 1, 1, 1, 1])
+        col_nome.write(f"**{dipendente}**")
+        for i, giorno in enumerate(giorni_formattati):
+            valore_attuale = df_inserimento.at[dipendente, giorno]
+            if valore_attuale not in lista_turni:
+                valore_attuale = "RIPOSO"
+            
+            scelta = cols_giorni[i].selectbox(
+                f"{giorno}-{dipendente}", 
+                lista_turni, 
+                index=lista_turni.index(valore_attuale), 
+                label_visibility="collapsed",
+                key=f"settimanale_{data_inizio.strftime('%Y%m%d')}_{dipendente}_{giorno}"
+            )
+            df_inserimento.at[dipendente, giorno] = scelta
 
 st.session_state[chiave_sessione] = df_inserimento
 
