@@ -49,21 +49,21 @@ def colora_tipologia_turno(valore):
     
     # 1. Priorità alle voci SIELTE (Celeste)
     if "SIELTE" in v:
-        return "background-color: #cceeff; color: #004466; font-weight: bold;"  # Celeste
+        return "background-color: #cceeff; color: #004466; font-weight: bold;"
     
     # 2. Voci PALAZZO (Verde)
     elif "PALAZZO" in v or v == "PAL+TOMM 14:30/22:00":
-        return "background-color: #ccffcc; color: #006600; font-weight: bold;"  # Verde
+        return "background-color: #ccffcc; color: #006600; font-weight: bold;"
     
     # 3. Voci TOMM rimanenti (Marrone Chiaro)
     elif "TOMM" in v or "TOM" in v:
-        return "background-color: #f5e1c8; color: #5c3a21; font-weight: bold;"  # Marrone chiaro
+        return "background-color: #f5e1c8; color: #5c3a21; font-weight: bold;"
         
     # 4. Stati generici (Riposi in Grigio, Assenze in Rosso)
     elif v in ["RIPOSO", "SENZA TURNO"]:
-        return "background-color: #f2f4f7; color: #5a626a;"  # Grigio
+        return "background-color: #f2f4f7; color: #5a626a;"
     elif v in ["FERIE", "MALATTIA", "PERMESSO RETR."]:
-        return "background-color: #fce8e6; color: #c5221f;"  # Rosso/Rosa chiaro
+        return "background-color: #fce8e6; color: #c5221f;"
         
     return ""
 
@@ -118,8 +118,8 @@ modo_vista = st.radio("Scegli come inserire/visualizzare i dati nella griglia:",
 if modo_vista == "Visualizza Giorno Singolo":
     st.subheader(f"✍️ Inserimento Turni di: {giorno_selezionato_stringa}")
     cols_header = st.columns([1.5, 6])
-    cols_header.write("**Dipendenti**")
-    cols_header.write(f"**Turno {giorno_selezionato_stringa}**")
+    cols_header[0].write("**Dipendenti**")
+    cols_header[1].write(f"**Turno {giorno_selezionato_stringa}**")
     
     for dipendente in df_inserimento.index:
         col_nome, col_scelta = st.columns([1.5, 6])
@@ -140,7 +140,7 @@ if modo_vista == "Visualizza Giorno Singolo":
 else:
     st.subheader("✍️ Inserimento Turni Settimanale")
     cols_header = st.columns([1.5, 1, 1, 1, 1, 1, 1, 1])
-    cols_header.write("**Dipendenti**")
+    cols_header[0].write("**Dipendenti**")
     for i, gf in enumerate(giorni_formattati):
         cols_header[i+1].write(f"**{gf}**")
 
