@@ -3,7 +3,7 @@ import pandas as pd
 import io, os
 from datetime import datetime, timedelta
 
-st.set_page_config(page_title="Gestione Turni Personale", layout="wide")
+st.set_page_config(page_title="Gestione Turni", layout="wide")
 FILE_SALVATAGGIO = "salvataggio_turni.csv"
 
 dipendenti_ore = {
@@ -11,15 +11,11 @@ dipendenti_ore = {
     "⚪ BENIGNO": 0, "🟡 COCUZZA": 0, "🟤 DE JOMA": 0, "⚫ GAITA": 0, "🔵 NUCCIO": 0, "🟢 LION": 0        
 }
 
-# Elenco completo con la correzione del turno SIELTE 24:00/08:30
 turni_ore = {
     "SENZA TURNO": 0.0, "RIPOSO": 0.0, "PERMESSO RETR.": 0.0, "FERIE": 0.0, "MALATTIA": 0.0,
-    "TOMM 17:30/23:30": 6.0, "TOMM 23:30/06:30": 7.0,
-    "PALAZZO 16:00/23:00": 7.0, "PALAZZO 23:00/06:00": 7.0,
-    "SIELTE 20:00/02:00": 6.0, "SIELTE 02:00/08:30": 6.5,
-    "SIELTE 20:00/01:00": 5.0, "SIELTE 01:00/06:00": 5.0,
-    "TOM+PAL 06:30/14:30": 8.0, "TOM+PAL 14:30/22:30": 8.0,
-    "TOMM 22:30/06:30": 8.0, "PALAZZO 22:30/06:30": 8.0,
+    "TOMM 17:30/23:30": 6.0, "TOMM 23:30/06:30": 7.0, "PALAZZO 16:00/23:00": 7.0, "PALAZZO 23:00/06:00": 7.0,
+    "SIELTE 20:00/02:00": 6.0, "SIELTE 02:00/08:30": 6.5, "SIELTE 20:00/01:00": 5.0, "SIELTE 01:00/06:00": 5.0,
+    "TOM+PAL 06:30/14:30": 8.0, "TOM+PAL 14:30/22:30": 8.0, "TOMM 22:30/06:30": 8.0, "PALAZZO 22:30/06:30": 8.0,
     "SIELTE 06:30/14:30": 8.0, "SIELTE 14:30/22:30": 8.0, "SIELTE 22:30/06:30": 8.0,
     "SIELTE 06:30/15:30": 9.0, "SIELTE 15:30/24:30": 9.0, "SIELTE 24:00/08:30": 8.5
 }
@@ -34,22 +30,16 @@ def colora_tipologia_turno(valore):
     if "TOMM" in v or "TOM" in v: return "background-color: #f5e1c8; color: #5c3a21; font-weight: bold;"
     return ""
 
-def aggiungi_emoji_menu(turno):
-    v = turno.upper().strip()
-    if v == "MALATTIA": return f"🔴 {turno}"
-    if v in ["RIPOSO", "SENZA TURNO", "FERIE", "PERMESSO RETR."]: return f"🟡 {turno}"
-    if "SIELTE" in v: return f"🔵 {turno}"
-    if "PALAZZO" in v or "PAL+" in v or "TOM+" in v: return f"🟢 {turno}"
-    if "TOMM" in v or "TOM" in v: return f"🟤 {turno}"
-    return turno
-
-def colora_delta(valore):
-    if valore < 0: return "background-color: #fce8e6; color: #c5221f; font-weight: bold;"
-    if valore > 0: return "background-color: #e6f4ea; color: #137333; font-weight: bold;"
-    return "color: #5f6368;"
+def aggiungi_emoji_menu(t):
+    v = t.upper().strip()
+    if v == "MALATTIA": return f"🔴 {t}"
+    if v in ["RIPOSO", "SENZA TURNO", "FERIE", "PERMESSO RETR."]: return f"🟡 {t}"
+    if "SIELTE" in v: return f"🔵 {t}"
+    if "PALAZZO" in v or "PAL+" in v or "TOM+" in v: return f"🟢 {t}"
+    if "TOMM" in v or "TOM" in v: return f"🟤 {t}"
+    return t
 
 st.title("📅 Pianificazione Settimanale dei Turni")
-st.subheader("🗓️ Seleziona la Settimana")
 data_scelta = st.date_input("Scegli un giorno sul calendario:", datetime.strptime("31/08/2026", "%d/%m/%Y").date())
 data_inizio = data_scelta - timedelta(days=data_scelta.weekday())  
 
@@ -73,7 +63,13 @@ if chiave_sessione not in st.session_state:
     st.session_state[chiave_sessione] = df_struttura
 
 with st.expander("📥 Importa Turni da File Esterno (Excel / CSV)", expanded=False):
-    file_caricato = st.file_uploader("Scegli un file:", type=["xlsx", "csv"], key="uploader_turni")
+    df_demo = pd.DataFrame("RIPOSO", index=list(dipendenti_ore.keys()), columns=giorni_formattati)
+    excel_demo_buffer = io.BytesIO()
+    with pd.ExcelWriter(excel_demo_buffer, engine="openpyxl") as w_demo:
+        df_demo.to_excel(w_demo, sheet_name="Modello Esempio")
+    st.download_button(label="📥 SCARICA IL FILE EXCEL DI PROVA AGGIORNATO", data=excel_demo_buffer.getvalue(), file_name="modello_turni_corretto.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
+    st.write("---")
+    file_caricato = st.file_uploader("Carica il file compilato qui sotto:", type=["xlsx", "csv"], key="uploader_turni")
     if file_caricato is not None:
         try:
             df_imp = pd.read_excel(file_caricato, index_col=0) if file_caricato.name.endswith(".xlsx") else pd.read_csv(file_caricato, index_col=0)
@@ -89,12 +85,10 @@ with st.expander("📥 Importa Turni da File Esterno (Excel / CSV)", expanded=Fa
                             if valore_file in lista_maiuscoli:
                                 turno_corretto = lista_turni[lista_maiuscoli.index(valore_file)]
                                 st.session_state[chiave_sessione].at[dip_griglia, g_griglia] = turno_corretto
-                                chiave_widget = f"wk_{data_inizio.strftime('%Y%m%d')}_{dip_griglia}_{g_griglia}"
-                                st.session_state[chiave_widget] = turno_corretto
+                                st.session_state[f"wk_{data_inizio.strftime('%Y%m%d')}_{dip_griglia}_{g_griglia}"] = turno_corretto
                                 contatore += 1
                 if contatore > 0:
-                    st.success(f"🎉 Caricati {contatore} turni con successo!")
-                    st.rerun()
+                    st.success(f"🎉 Caricati {contatore} turni!"); st.rerun()
                 else: st.warning("⚠️ Nessun dato corrispondente trovato.")
         except Exception as e: st.error(f"❌ Errore: {e}")
 
@@ -102,7 +96,7 @@ df_inserimento = st.session_state[chiave_sessione].copy()
 
 with st.expander("✍️ Apri il Pannello Inserimento Turni Personale", expanded=True):
     cols_header = st.columns([1.6, 1, 1, 1, 1, 1, 1, 1])
-    cols_header[0].write("**Dipendenti**") # CORRETTO: Aggiunto l'indice [0] mancante
+    cols_header.write("**Dipendenti**")
     for i, gf in enumerate(giorni_formattati): cols_header[i+1].write(f"**{gf}**")
     for dipendente in df_inserimento.index:
         col_nome, *cols_giorni = st.columns([1.6, 1, 1, 1, 1, 1, 1, 1])
@@ -110,13 +104,7 @@ with st.expander("✍️ Apri il Pannello Inserimento Turni Personale", expanded
         for i, giorno in enumerate(giorni_formattati):
             chiave_widget = f"wk_{data_inizio.strftime('%Y%m%d')}_{dipendente}_{giorno}"
             valore_attuale = df_inserimento.at[dipendente, giorno]
-            scelta = cols_giorni[i].selectbox(
-                f"{giorno}-{dipendente}", lista_turni, 
-                index=lista_turni.index(valore_attuale if valore_attuale in lista_turni else "RIPOSO"), 
-                format_func=aggiungi_emoji_menu, label_visibility="collapsed", 
-                key=chiave_widget
-            )
-            df_inserimento.at[dipendente, giorno] = scelta
+            df_inserimento.at[dipendente, giorno] = cols_giorni[i].selectbox(f"{giorno}-{dipendente}", lista_turni, index=lista_turni.index(valore_attuale if valore_attuale in lista_turni else "RIPOSO"), format_func=aggiungi_emoji_menu, label_visibility="collapsed", key=chiave_widget)
 
 st.session_state[chiave_sessione] = df_inserimento
 errori_rilevati = []
@@ -127,19 +115,17 @@ for giorno in giorni_formattati:
     for turno in lista_turni:
         if turno not in voci_escluse and turni_giorno.count(turno) > 1:
             nomi_coinvolti = df_inserimento[df_inserimento[giorno] == turno].index.tolist()
-            nomi_puliti = ", ".join([n.split()[-1] for n in nomi_coinvolti])
-            errori_rilevati.append(f"⚠️ Il turno {turno} è duplicato tra: {nomi_puliti}.")
+            errori_rilevati.append(f"⚠️ Il turno {turno} è duplicato di {giorno.split()} tra: {', '.join([n.split()[-1] for n in nomi_coinvolti])}")
 
 blocco_salvataggio = len(errori_rilevati) > 0
 if errori_rilevati:
-    st.error("### 🛑 Rilevati conflitti di assegnazione contemporanea:")
+    st.error("### 🛑 Conflitti di assegnazione:")
     for errore in errori_rilevati: st.write(errore)
 
 st.write("")
 col_salva, _ = st.columns(2)
 if col_salva.button("💾 SALVA MODIFICHE PERMANENTI", use_container_width=True, disabled=blocco_salvataggio):
-    df_inserimento.to_csv(FILE_SALVATAGGIO)
-    st.success("🎉 Turni salvati nel file permanente!")
+    df_inserimento.to_csv(FILE_SALVATAGGIO); st.success("🎉 Turni salvati!")
 elif blocco_salvataggio: st.warning("🔒 Correggi la griglia per sbloccare il salvataggio.")
 
 st.write("---")
@@ -149,7 +135,7 @@ df_ore = pd.DataFrame({"Ore Contrattuali": [dipendenti_ore[d] for d in df_inseri
 df_ore["Delta (Ore)"] = df_ore["Ore Svolte"] - df_ore["Ore Contrattuali"]
 
 st.metric(label="Totalizzatore Ore Lavorate dalla Squadra", value=f"{df_ore['Ore Svolte'].sum():.1f} ore")
-st.dataframe(df_ore.style.format("{:.1f}").map(colora_delta, subset=["Delta (Ore)"]), use_container_width=True)
+st.dataframe(df_ore.style.format("{:.1f}").map(lambda v: "background-color: #fce8e6; color: #c5221f; font-weight: bold;" if v < 0 else "background-color: #e6f4ea; color: #137333; font-weight: bold;" if v > 0 else "color: #5f6368;", subset=["Delta (Ore)"]), use_container_width=True)
 
 st.write("---")
 st.header("👀 Tabella Orari Applicata (Anteprima)")
