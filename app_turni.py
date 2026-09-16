@@ -40,6 +40,7 @@ def aggiungi_emoji_menu(t):
     return t
 
 st.title("📅 Pianificazione Settimanale dei Turni")
+st.subheader("🗓️ Seleziona la Settimana")
 data_scelta = st.date_input("Scegli un giorno sul calendario:", datetime.strptime("31/08/2026", "%d/%m/%Y").date())
 data_inizio = data_scelta - timedelta(days=data_scelta.weekday())  
 
@@ -63,13 +64,7 @@ if chiave_sessione not in st.session_state:
     st.session_state[chiave_sessione] = df_struttura
 
 with st.expander("📥 Importa Turni da File Esterno (Excel / CSV)", expanded=False):
-    df_demo = pd.DataFrame("RIPOSO", index=list(dipendenti_ore.keys()), columns=giorni_formattati)
-    excel_demo_buffer = io.BytesIO()
-    with pd.ExcelWriter(excel_demo_buffer, engine="openpyxl") as w_demo:
-        df_demo.to_excel(w_demo, sheet_name="Modello Esempio")
-    st.download_button(label="📥 SCARICA IL FILE EXCEL DI PROVA AGGIORNATO", data=excel_demo_buffer.getvalue(), file_name="modello_turni_corretto.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
-    st.write("---")
-    file_caricato = st.file_uploader("Carica il file compilato qui sotto:", type=["xlsx", "csv"], key="uploader_turni")
+    file_caricato = st.file_uploader("Carica un file Excel (.xlsx) o CSV:", type=["xlsx", "csv"], key="uploader_turni")
     if file_caricato is not None:
         try:
             df_imp = pd.read_excel(file_caricato, index_col=0) if file_caricato.name.endswith(".xlsx") else pd.read_csv(file_caricato, index_col=0)
@@ -79,7 +74,7 @@ with st.expander("📥 Importa Turni da File Esterno (Excel / CSV)", expanded=Fa
                 for dip_griglia in st.session_state[chiave_sessione].index:
                     dip_puro = dip_griglia.upper().strip()
                     dip_file = next((f for f in df_imp.index if f in dip_puro or dip_puro in f), None)
-                    if dip_file is not None and df_imp.shape >= 7:
+                    if dip_file is not None and df_imp.shape[1] >= 7:
                         for i, g_griglia in enumerate(giorni_formattati):
                             valore_file = str(df_imp.iloc[df_imp.index.get_loc(dip_file), i]).strip().upper()
                             if valore_file in lista_maiuscoli:
@@ -96,7 +91,7 @@ df_inserimento = st.session_state[chiave_sessione].copy()
 
 with st.expander("✍️ Apri il Pannello Inserimento Turni Personale", expanded=True):
     cols_header = st.columns([1.6, 1, 1, 1, 1, 1, 1, 1])
-    cols_header.write("**Dipendenti**")
+    cols_header[0].write("**Dipendenti**")
     for i, gf in enumerate(giorni_formattati): cols_header[i+1].write(f"**{gf}**")
     for dipendente in df_inserimento.index:
         col_nome, *cols_giorni = st.columns([1.6, 1, 1, 1, 1, 1, 1, 1])
@@ -115,7 +110,7 @@ for giorno in giorni_formattati:
     for turno in lista_turni:
         if turno not in voci_escluse and turni_giorno.count(turno) > 1:
             nomi_coinvolti = df_inserimento[df_inserimento[giorno] == turno].index.tolist()
-            errori_rilevati.append(f"⚠️ Il turno {turno} è duplicato di {giorno.split()} tra: {', '.join([n.split()[-1] for n in nomi_coinvolti])}")
+            errori_rilevati.append(f"⚠️ Il turno {turno} è duplicato in {giorno.split()[0]} tra: {', '.join([n.split()[-1] for n in nomi_coinvolti])}")
 
 blocco_salvataggio = len(errori_rilevati) > 0
 if errori_rilevati:
