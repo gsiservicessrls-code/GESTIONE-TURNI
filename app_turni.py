@@ -96,7 +96,7 @@ df_inserimento = st.session_state[chiave_sessione].copy()
 
 with st.expander("✍️ Apri il Pannello Inserimento Turni Personale", expanded=True):
     cols_header = st.columns([1.6, 1, 1, 1, 1, 1, 1, 1])
-    cols_header.write("**Dipendenti**")
+    cols_header[0].write("**Dipendenti**") # CORRETTO: Aggiunto l'indice per la colonna dei dipendenti
     for i, gf in enumerate(giorni_formattati): cols_header[i+1].write(f"**{gf}**")
     for dipendente in df_inserimento.index:
         col_nome, *cols_giorni = st.columns([1.6, 1, 1, 1, 1, 1, 1, 1])
@@ -116,7 +116,7 @@ if errori_rilevati:
     for errore in errori_rilevati: st.write(errore)
 
 st.write("")
-if st.columns(2).button("💾 SALVA MODIFICHE PERMANENTI", use_container_width=True, disabled=len(errori_rilevati) > 0):
+if st.columns(2)[0].button("💾 SALVA MODIFICHE PERMANENTI", use_container_width=True, disabled=len(errori_rilevati) > 0):
     df_inserimento.to_csv(FILE_SALVATAGGIO); st.success("🎉 Turni salvati!")
 
 st.write("---")
