@@ -60,27 +60,6 @@ lista_turni = list(turni_ore.keys())
 st.info(f"📆 Settimana attiva da **Lunedì {data_inizio.strftime('%d/%m/%Y')}** a **Domenica {(data_inizio + timedelta(days=6)).strftime('%d/%m/%Y')}**")
 chiave_sessione = f"tabella_turni_{data_inizio.strftime('%Y_%m_%d')}"
 
-with st.expander("📥 Importa Turni da File Esterno (Excel / CSV)", expanded=False):
-    st.markdown("Carica un file Excel (`.xlsx`) o `.csv` con la stessa struttura dei giorni correnti.")
-    file_caricato = st.file_uploader("Scegli un file:", type=["xlsx", "csv"], key="uploader_turni")
-    if file_caricato is not None:
-        try:
-            df_importato = pd.read_excel(file_caricato, index_col=0) if file_caricato.name.endswith(".xlsx") else pd.read_csv(file_caricato, index_col=0)
-            df_importato.index = df_importato.index.astype(str).str.strip()
-            df_importato.columns = df_importato.columns.astype(str).str.strip()
-            if st.button("🔄 Applica dati caricati alla settimana attiva", use_container_width=True):
-                if chiave_sessione not in st.session_state:
-                    st.session_state[chiave_sessione] = pd.DataFrame({g: ["RIPOSO" for _ in dipendenti_ore] for g in giorni_formattati}, index=list(dipendenti_ore.keys()))
-                for dip in st.session_state[chiave_sessione].index:
-                    for gio in st.session_state[chiave_sessione].columns:
-                        if dip in df_importato.index and gio in df_importato.columns:
-                            val = str(df_importato.at[dip, gio]).strip()
-                            if val in lista_turni: st.session_state[chiave_sessione].at[dip, gio] = val
-                st.success("✅ Dati importati! Controlla la griglia sotto.")
-                st.rerun()
-        except Exception as e:
-            st.error(f"❌ Errore importazione: {e}")
-
 if chiave_sessione not in st.session_state:
     df_struttura = pd.DataFrame({g: ["RIPOSO" for _ in dipendenti_ore] for g in giorni_formattati}, index=list(dipendenti_ore.keys()))
     if os.path.exists(FILE_SALVATAGGIO):
@@ -92,11 +71,42 @@ if chiave_sessione not in st.session_state:
         except: pass
     st.session_state[chiave_sessione] = df_struttura
 
+with st.expander("📥 Importa Turni da File Esterno (Excel / CSV)", expanded=False):
+    st.markdown("Carica un file Excel o CSV. I turni verranno inseriti nell'ordine da Lunedì a Domenica.")
+    file_caricato = st.file_uploader("Scegli un file:", type=["xlsx", "csv"], key="uploader_turni")
+    if file_caricato is not None:
+        try:
+            df_importato = pd.read_excel(file_caricato, index_col=0) if file_caricato.name.endswith(".xlsx") else pd.read_csv(file_caricato, index_col=0)
+            df_importato.index = df_importato.index.astype(str).str.strip().str.upper()
+            
+            if st.button("🔄 Applica dati caricati alla settimana attiva", use_container_width=True):
+                # Confronto intelligente senza dipendere dalle date esatte delle colonne
+                for dip_griglia in st.session_state[chiave_sessione].index:
+                    dip_puro = dip_griglia.upper().strip()
+                    
+                    # Cerca se il dipendente esiste nel file (anche parziale)
+                    dip_trovato_nel_file = None
+                    for dip_file in df_importato.index:
+                        if dip_file in dip_puro or dip_puro in dip_file:
+                            dip_trovato_nel_file = dip_file
+                            break
+                    
+                    if dip_trovato_nel_file is not None and df_importato.shape[1] >= 7:
+                        for i, g_griglia in enumerate(giorni_formattati):
+                            valore_turno = str(df_importato.iloc[df_importato.index.get_loc(dip_trovato_nel_file), i]).strip()
+                            if valore_turno in lista_turni:
+                                st.session_state[chiave_sessione].at[dip_griglia, g_griglia] = valore_turno
+                                
+                st.success("✅ Dati importati con successo basandoti sulla sequenza dei giorni!")
+                st.rerun()
+        except Exception as e:
+            st.error(f"❌ Errore importazione: {e}")
+
 df_inserimento = st.session_state[chiave_sessione].copy()
 
 with st.expander("✍️ Apri il Pannello Inserimento Turni Personale", expanded=True):
     cols_header = st.columns([1.6, 1, 1, 1, 1, 1, 1, 1])
-    cols_header[0].write("**Dipendenti**")
+    cols_header.write("**Dipendenti**")
     for i, gf in enumerate(giorni_formattati): cols_header[i+1].write(f"**{gf}**")
     for dipendente in df_inserimento.index:
         col_nome, *cols_giorni = st.columns([1.6, 1, 1, 1, 1, 1, 1, 1])
@@ -121,7 +131,7 @@ for giorno in giorni_formattati:
         if turno not in voci_escluse and turni_giorno.count(turno) > 1:
             nomi_coinvolti = df_inserimento[df_inserimento[giorno] == turno].index.tolist()
             nomi_puliti = ", ".join([n.split()[-1] for n in nomi_coinvolti])
-            errori_rilevati.append(f"⚠️ **{giorno.split()[0]}**: Il turno **{turno}** è duplicato tra: {nomi_puliti}.")
+            errori_rilevati.append(f"⚠️ {giorno.split()[0]}: Il turno {turno} è duplicato tra: {nomi_puliti}.")
 
 blocco_salvataggio = len(errori_rilevati) > 0
 if errori_rilevati:
@@ -169,4 +179,4 @@ try:
         df_ore.to_excel(writer, sheet_name="Resoconto Ore")
     col_excel.download_button(label="🟢 Scarica Report Completo in Excel", data=excel_buffer.getvalue(), file_name=f"report_{data_inizio.strftime('%Y%m%d')}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
 except:
-    col_excel.info("💡 Per scaricare in formato Excel, assicurati di installare `openpyxl`.")
+    col_excel.info("💡 Per scaricare in formato Excel, assicurati di installare `openpyxl` via terminale.")
