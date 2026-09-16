@@ -4,15 +4,10 @@ import io
 import os
 from datetime import datetime, timedelta
 
-# Configurazione della pagina (Wide mode forza lo schermo intero orizzontale)
 st.set_page_config(page_title="Gestione Turni Personale", layout="wide")
 
-# File locale unico centralizzato per evitare frammentazioni dei dati
 FILE_SALVATAGGIO = "salvataggio_turni.csv"
 
-# ==============================================================================
-# 🎨 ORDINE DEI NOMINATIVI E ORE CONTRATTUALI
-# ==============================================================================
 dipendenti_ore = {
     "🟡 PERINO": 38, 
     "🔵 SERIO A.": 30,
@@ -27,7 +22,6 @@ dipendenti_ore = {
     "🟢 LION": 0        
 }
 
-# Elenco dei 31 turni e relativi valori orari
 turni_ore = {
     "RIPOSO": 0, "SENZA TURNO": 0, "PERMESSO RETR.": 0, "FERIE": 0, "MALATTIA": 0,
     "TOMM 06:30/14:30": 8.0, "TOMM 14:30/22:30": 8.0, "TOMM  22:30/06:30": 8.0,
@@ -40,14 +34,10 @@ turni_ore = {
     "PAL+TOMM 14:30/22:00": 12.0
 }
 
-# ==============================================================================
-# 🎨 FUNZIONI GRAFICHE E DI COLORE
-# ==============================================================================
 def colora_tipologia_turno(valore):
     if pd.isna(valore) or not isinstance(valore, str): return ""
     v = valore.upper().strip()
     if v == "": return ""
-    
     if v == "MALATTIA":
         return "background-color: #fce8e6; color: #c5221f; font-weight: bold;"
     elif v in ["RIPOSO", "SENZA TURNO", "FERIE", "PERMESSO RETR."]:
@@ -76,11 +66,7 @@ def colora_delta(valore):
         return "background-color: #e6f4ea; color: #137333; font-weight: bold;"
     return "color: #5f6368;"
 
-# ==============================================================================
-# ⚙️ LOGICA CALCOLO DATA E CARICAMENTO FILE
-# ==============================================================================
 st.title("📅 Pianificazione Settimanale dei Turni")
-
 st.subheader("🗓️ Seleziona la Settimana")
 data_scelta = st.date_input("Scegli un giorno sul calendario:", datetime.strptime("31/08/2026", "%d/%m/%Y").date())
 data_inizio = data_scelta - timedelta(days=data_scelta.weekday())  
@@ -96,7 +82,6 @@ chiave_sessione = f"tabella_turni_{data_inizio.strftime('%Y_%m_%d')}"
 if chiave_sessione not in st.session_state:
     dati_iniziali = {giorno: ["RIPOSO" for _ in dipendenti_ore] for giorno in giorni_formattati}
     df_struttura_attuale = pd.DataFrame(dati_iniziali, index=list(dipendenti_ore.keys()))
-    
     if os.path.exists(FILE_SALVATAGGIO):
         try:
             df_caricato = pd.read_csv(FILE_SALVATAGGIO, index_col=0)
@@ -112,21 +97,16 @@ if chiave_sessione not in st.session_state:
 
 df_inserimento = st.session_state[chiave_sessione].copy()
 
-# ==============================================================================
-# ✍️ GRIGLIA UNICA DI INSERIMENTO SETTIMANALE
-# ==============================================================================
 with st.expander("✍️ Apri il Pannello Inserimento Turni Personale", expanded=True):
     cols_header = st.columns([1.6, 1, 1, 1, 1, 1, 1, 1])
     cols_header[0].write("**Dipendenti**")
     for i, gf in enumerate(giorni_formattati): 
         cols_header[i+1].write(f"**{gf}**")
-
     for dipendente in df_inserimento.index:
         col_nome, *cols_giorni = st.columns([1.6, 1, 1, 1, 1, 1, 1, 1])
         col_nome.write(f"**{dipendente}**")
         for i, giorno in enumerate(giorni_formattati):
             valore_attuale = df_inserimento.at[dipendente, giorno]
-            
             scelta = cols_giorni[i].selectbox(
                 f"{giorno}-{dipendente}", lista_turni, 
                 index=lista_turni.index(valore_attuale if valore_attuale in lista_turni else "RIPOSO"), 
@@ -137,9 +117,6 @@ with st.expander("✍️ Apri il Pannello Inserimento Turni Personale", expanded
 
 st.session_state[chiave_sessione] = df_inserimento
 
-# ==============================================================================
-# 🚨 CONTROLLO UNICITÀ CONTEMPORANEA DEI TURNI
-# ==============================================================================
 errori_rilevati = []
 voci_escluse = ["RIPOSO", "SENZA TURNO", "FERIE", "MALATTIA", "PERMESSO RETR."]
 
@@ -160,20 +137,14 @@ if errori_rilevati:
     for errore in errori_rilevati:
         st.write(errore)
 
-# ==============================================================================
-# 💾 PULSANTE DI SALVATAGGIO CENTRALIZZATO
-# ==============================================================================
 st.write("")
 col_salva, _ = st.columns(2)
 if col_salva.button("💾 SALVA MODIFICHE PERMANENTI", use_container_width=True, disabled=blocco_salvataggio):
     df_inserimento.to_csv(FILE_SALVATAGGIO)
-    st.success(f"🎉 Turni salvati correttamente nel file unico permanente!")
+    st.success("🎉 Turni salvati correttamente nel file unico permanente!")
 elif blocco_salvataggio:
     st.warning("🔒 Assegnazioni duplicate rilevate. Correggi la griglia per sbloccare il salvataggio.")
 
-# ==============================================================================
-# 📊 CALCOLO ORE E RESOCONTI CONTRATTUALI
-# ==============================================================================
 st.write("---")
 st.header("📊 Resoconto Ore Settimanali")
 
@@ -196,22 +167,42 @@ totale_ore_squadra = df_ore["Ore Svolte"].sum()
 st.metric(label="Totalizzatore Ore Lavorate dalla Squadra", value=f"{totale_ore_squadra:.1f} ore")
 
 st.subheader("📈 Dettaglio Ore per Dipendente")
-df_ore_styled = df_ore.style.format("{:.1f}").applymap(colora_delta, subset=["Delta (Ore)"])
+df_ore_styled = df_ore.style.format("{:.1f}").map(colora_delta, subset=["Delta (Ore)"])
 st.dataframe(df_ore_styled, use_container_width=True)
 
-# ==============================================================================
-# 👀 TABELLA VISUALE RIASSUNTIVA ORARI
-# ==============================================================================
 st.write("---")
 st.header("👀 Tabella Orari Applicata (Anteprima)")
-
-df_inserimento_styled = df_inserimento.style.applymap(colora_tipologia_turno)
+df_inserimento_styled = df_inserimento.style.map(colora_tipologia_turno)
 st.dataframe(df_inserimento_styled, use_container_width=True)
 
-# ==============================================================================
-# 📥 ESPORTAZIONE DATI
-# ==============================================================================
 st.write("")
 st.subheader("📥 Esporta la Pianificazione")
-
 col_csv, col_excel = st.columns(2)
+
+csv_buffer = io.StringIO()
+df_inserimento.to_csv(csv_buffer)
+csv_data = csv_buffer.getvalue()
+
+col_csv.download_button(
+    label="📄 Scarica Turni in CSV",
+    data=csv_data,
+    file_name=f"turni_settimana_{data_inizio.strftime('%Y%m%d')}.csv",
+    mime="text/csv",
+    use_container_width=True
+)
+
+try:
+    excel_buffer = io.BytesIO()
+    with pd.ExcelWriter(excel_buffer, engine="openpyxl") as writer:
+        df_inserimento.to_excel(writer, sheet_name="Turni Settimanali")
+        df_ore.to_excel(writer, sheet_name="Resoconto Ore")
+    excel_data = excel_buffer.getvalue()
+    col_excel.download_button(
+        label="🟢 Scarica Report Completo in Excel",
+        data=excel_data,
+        file_name=f"report_turni_{data_inizio.strftime('%Y%m%d')}.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        use_container_width=True
+    )
+except Exception as e:
+    col_excel.info("💡 Per scaricare il formato Excel, assicurati di aver installato `openpyxl` (`pip install openpyxl`).")
