@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
-import io
-import os
+import io, os
 from datetime import datetime, timedelta
 
 st.set_page_config(page_title="Gestione Turni Personale", layout="wide")
@@ -56,6 +55,7 @@ data_inizio = data_scelta - timedelta(days=data_scelta.weekday())
 giorni_nomi = ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"]
 giorni_formattati = [f"{g} {(data_inizio + timedelta(days=i)).strftime('%d/%m')}" for i, g in enumerate(giorni_nomi)]
 lista_turni = list(turni_ore.keys())
+lista_maiuscoli = [t.upper().strip() for t in lista_turni]
 
 st.info(f"📆 Settimana attiva da **Lunedì {data_inizio.strftime('%d/%m/%Y')}** a **Domenica {(data_inizio + timedelta(days=6)).strftime('%d/%m/%Y')}**")
 chiave_sessione = f"tabella_turni_{data_inizio.strftime('%Y_%m_%d')}"
@@ -72,32 +72,27 @@ if chiave_sessione not in st.session_state:
     st.session_state[chiave_sessione] = df_struttura
 
 with st.expander("📥 Importa Turni da File Esterno (Excel / CSV)", expanded=False):
-    st.markdown("Carica un file Excel o CSV. I turni verranno inseriti nell'ordine da Lunedì a Domenica.")
     file_caricato = st.file_uploader("Scegli un file:", type=["xlsx", "csv"], key="uploader_turni")
     if file_caricato is not None:
         try:
-            df_importato = pd.read_excel(file_caricato, index_col=0) if file_caricato.name.endswith(".xlsx") else pd.read_csv(file_caricato, index_col=0)
-            df_importato.index = df_importato.index.astype(str).str.strip().str.upper()
-            
+            df_imp = pd.read_excel(file_caricato, index_col=0) if file_caricato.name.endswith(".xlsx") else pd.read_csv(file_caricato, index_col=0)
+            df_imp.index = df_imp.index.astype(str).str.strip().str.upper()
             if st.button("🔄 Applica dati caricati alla settimana attiva", use_container_width=True):
+                contatore = 0
                 for dip_griglia in st.session_state[chiave_sessione].index:
                     dip_puro = dip_griglia.upper().strip()
-                    dip_trovato_nel_file = None
-                    for dip_file in df_importato.index:
-                        if dip_file in dip_puro or dip_puro in dip_file:
-                            dip_trovato_nel_file = dip_file
-                            break
-                    
-                    if dip_trovato_nel_file is not None and df_importato.shape[1] >= 7:
+                    dip_file = next((f for f in df_imp.index if f in dip_puro or dip_puro in f), None)
+                    if dip_file is not None and df_imp.shape[1] >= 7:
                         for i, g_griglia in enumerate(giorni_formattati):
-                            valore_turno = str(df_importato.iloc[df_importato.index.get_loc(dip_trovato_nel_file), i]).strip()
-                            if valore_turno in lista_turni:
-                                st.session_state[chiave_sessione].at[dip_griglia, g_griglia] = valore_turno
-                                
-                st.success("✅ Dati importati con successo basandoti sulla sequenza dei giorni!")
-                st.rerun()
-        except Exception as e:
-            st.error(f"❌ Errore importazione: {e}")
+                            valore_file = str(df_imp.iloc[df_imp.index.get_loc(dip_file), i]).strip().upper()
+                            if valore_file in lista_maiuscoli:
+                                st.session_state[chiave_sessione].at[dip_griglia, g_griglia] = lista_turni[lista_maiuscoli.index(valore_file)]
+                                contatore += 1
+                if contatore > 0:
+                    st.success(f"🎉 Caricati {contatore} turni con successo!")
+                    st.rerun()
+                else: st.warning("⚠️ Nessun dato corrispondente trovato.")
+        except Exception as e: st.error(f"❌ Errore: {e}")
 
 df_inserimento = st.session_state[chiave_sessione].copy()
 
@@ -139,22 +134,16 @@ st.write("")
 col_salva, _ = st.columns(2)
 if col_salva.button("💾 SALVA MODIFICHE PERMANENTI", use_container_width=True, disabled=blocco_salvataggio):
     df_inserimento.to_csv(FILE_SALVATAGGIO)
-    st.success("🎉 Turni salvati correttamente nel file unico permanente!")
-elif blocco_salvataggio:
-    st.warning("🔒 Assegnazioni duplicate rilevate. Correggi la griglia per sbloccare il salvataggio.")
+    st.success("🎉 Turni salvati nel file permanente!")
+elif blocco_salvataggio: st.warning("🔒 Correggi la griglia per sbloccare il salvataggio.")
 
 st.write("---")
 st.header("📊 Resoconto Ore Settimanali")
 ore_lavorate_settimana = [sum(turni_ore.get(df_inserimento.at[dip, g], 0.0) for g in giorni_formattati) for dip in df_inserimento.index]
-
-df_ore = pd.DataFrame({
-    "Ore Contrattuali": [dipendenti_ore[d] for d in df_inserimento.index],
-    "Ore Svolte": ore_lavorate_settimana
-}, index=df_inserimento.index)
+df_ore = pd.DataFrame({"Ore Contrattuali": [dipendenti_ore[d] for d in df_inserimento.index], "Ore Svolte": ore_lavorate_settimana}, index=df_inserimento.index)
 df_ore["Delta (Ore)"] = df_ore["Ore Svolte"] - df_ore["Ore Contrattuali"]
 
 st.metric(label="Totalizzatore Ore Lavorate dalla Squadra", value=f"{df_ore['Ore Svolte'].sum():.1f} ore")
-st.subheader("📈 Dettaglio Ore per Dipendente")
 st.dataframe(df_ore.style.format("{:.1f}").map(colora_delta, subset=["Delta (Ore)"]), use_container_width=True)
 
 st.write("---")
@@ -164,7 +153,6 @@ st.dataframe(df_inserimento.style.map(colora_tipologia_turno), use_container_wid
 st.write("")
 st.subheader("📥 Esporta la Pianificazione")
 col_csv, col_excel = st.columns(2)
-
 csv_buffer = io.StringIO()
 df_inserimento.to_csv(csv_buffer)
 col_csv.download_button(label="📄 Scarica Turni in CSV", data=csv_buffer.getvalue(), file_name=f"turni_{data_inizio.strftime('%Y%m%d')}.csv", mime="text/csv", use_container_width=True)
@@ -175,5 +163,4 @@ try:
         df_inserimento.to_excel(writer, sheet_name="Turni Settimanali")
         df_ore.to_excel(writer, sheet_name="Resoconto Ore")
     col_excel.download_button(label="🟢 Scarica Report Completo in Excel", data=excel_buffer.getvalue(), file_name=f"report_{data_inizio.strftime('%Y%m%d')}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
-except:
-    col_excel.info("💡 Per scaricare in formato Excel, assicurati di installare `openpyxl` via terminale.")
+except: col_excel.info("💡 Installa `openpyxl` per scaricare in formato Excel.")
