@@ -11,16 +11,17 @@ dipendenti_ore = {
     "⚪ BENIGNO": 0, "🟡 COCUZZA": 0, "🟤 DE JOMA": 0, "⚫ GAITA": 0, "🔵 NUCCIO": 0, "🟢 LION": 0        
 }
 
+# Elenco completo con la correzione del turno SIELTE 24:00/08:30
 turni_ore = {
-    "RIPOSO": 0, "SENZA TURNO": 0, "PERMESSO RETR.": 0, "FERIE": 0, "MALATTIA": 0,
-    "TOMM 06:30/14:30": 8.0, "TOMM 14:30/22:30": 8.0, "TOMM  22:30/06:30": 8.0,
-    "TOMM 17:30/23:30": 6.0, "TOMM 23:30/06:30": 7.0, "TOM + PAL 06:30/14:30": 8.0,
-    "TOM+PAL 14:30/22:00": 12.0, "SIELTE 06/14": 8.0, "SIELTE 14/22": 8.0, "SIELTE 22/06": 8.0,
-    "SIELTE 20/02": 6.0, "SIELTE 02/08:30": 6.5, "SIELTE 20/01": 5.0, "SIELTE 01/06": 5.0,
-    "SIELTE 06/15": 9.0, "SIELTE 15/24": 9.0, "SIELTE 24/08:30": 8.5, "SIELTE 20/06": 10.0,
-    "SIELTE 06/18": 12.0, "SIELTE 18/06": 12.0, "PALAZZO 06/14": 8.0, "PALAZZO 14/22": 8.0,
-    "PALAZZO 22/06": 8.0, "PALAZZO 16/23": 7.0, "PALAZZO 23/06": 7.0, "PALAZZO 06/18": 12.0,
-    "PAL+TOMM 14:30/22:00": 12.0
+    "SENZA TURNO": 0.0, "RIPOSO": 0.0, "PERMESSO RETR.": 0.0, "FERIE": 0.0, "MALATTIA": 0.0,
+    "TOMM 17:30/23:30": 6.0, "TOMM 23:30/06:30": 7.0,
+    "PALAZZO 16:00/23:00": 7.0, "PALAZZO 23:00/06:00": 7.0,
+    "SIELTE 20:00/02:00": 6.0, "SIELTE 02:00/08:30": 6.5,
+    "SIELTE 20:00/01:00": 5.0, "SIELTE 01:00/06:00": 5.0,
+    "TOM+PAL 06:30/14:30": 8.0, "TOM+PAL 14:30/22:30": 8.0,
+    "TOMM 22:30/06:30": 8.0, "PALAZZO 22:30/06:30": 8.0,
+    "SIELTE 06:30/14:30": 8.0, "SIELTE 14:30/22:30": 8.0, "SIELTE 22:30/06:30": 8.0,
+    "SIELTE 06:30/15:30": 9.0, "SIELTE 15:30/24:30": 9.0, "SIELTE 24:00/08:30": 8.5
 }
 
 def colora_tipologia_turno(valore):
@@ -29,7 +30,7 @@ def colora_tipologia_turno(valore):
     if v == "MALATTIA": return "background-color: #fce8e6; color: #c5221f; font-weight: bold;"
     if v in ["RIPOSO", "SENZA TURNO", "FERIE", "PERMESSO RETR."]: return "background-color: #fef7e0; color: #b06000; font-weight: bold;"
     if "SIELTE" in v: return "background-color: #cceeff; color: #004466; font-weight: bold;"
-    if "PALAZZO" in v or v == "PAL+TOMM 14:30/22:00": return "background-color: #ccffcc; color: #006600; font-weight: bold;"
+    if "PALAZZO" in v or "PAL+" in v or "TOM+" in v: return "background-color: #ccffcc; color: #006600; font-weight: bold;"
     if "TOMM" in v or "TOM" in v: return "background-color: #f5e1c8; color: #5c3a21; font-weight: bold;"
     return ""
 
@@ -38,7 +39,7 @@ def aggiungi_emoji_menu(turno):
     if v == "MALATTIA": return f"🔴 {turno}"
     if v in ["RIPOSO", "SENZA TURNO", "FERIE", "PERMESSO RETR."]: return f"🟡 {turno}"
     if "SIELTE" in v: return f"🔵 {turno}"
-    if "PALAZZO" in v or v == "PAL+TOMM 14:30/22:00": return f"🟢 {turno}"
+    if "PALAZZO" in v or "PAL+" in v or "TOM+" in v: return f"🟢 {turno}"
     if "TOMM" in v or "TOM" in v: return f"🟤 {turno}"
     return turno
 
@@ -82,14 +83,12 @@ with st.expander("📥 Importa Turni da File Esterno (Excel / CSV)", expanded=Fa
                 for dip_griglia in st.session_state[chiave_sessione].index:
                     dip_puro = dip_griglia.upper().strip()
                     dip_file = next((f for f in df_imp.index if f in dip_puro or dip_puro in f), None)
-                    if dip_file is not None and df_imp.shape[1] >= 7:
+                    if dip_file is not None and df_imp.shape >= 7:
                         for i, g_griglia in enumerate(giorni_formattati):
                             valore_file = str(df_imp.iloc[df_imp.index.get_loc(dip_file), i]).strip().upper()
                             if valore_file in lista_maiuscoli:
                                 turno_corretto = lista_turni[lista_maiuscoli.index(valore_file)]
                                 st.session_state[chiave_sessione].at[dip_griglia, g_griglia] = turno_corretto
-                                
-                                # AGGIORNAMENTO DIRETTO DELLO STATO VISIVO DEI COMPONENTI
                                 chiave_widget = f"wk_{data_inizio.strftime('%Y%m%d')}_{dip_griglia}_{g_griglia}"
                                 st.session_state[chiave_widget] = turno_corretto
                                 contatore += 1
@@ -103,7 +102,7 @@ df_inserimento = st.session_state[chiave_sessione].copy()
 
 with st.expander("✍️ Apri il Pannello Inserimento Turni Personale", expanded=True):
     cols_header = st.columns([1.6, 1, 1, 1, 1, 1, 1, 1])
-    cols_header[0].write("**Dipendenti**")
+    cols_header.write("**Dipendenti**")
     for i, gf in enumerate(giorni_formattati): cols_header[i+1].write(f"**{gf}**")
     for dipendente in df_inserimento.index:
         col_nome, *cols_giorni = st.columns([1.6, 1, 1, 1, 1, 1, 1, 1])
@@ -111,7 +110,6 @@ with st.expander("✍️ Apri il Pannello Inserimento Turni Personale", expanded
         for i, giorno in enumerate(giorni_formattati):
             chiave_widget = f"wk_{data_inizio.strftime('%Y%m%d')}_{dipendente}_{giorno}"
             valore_attuale = df_inserimento.at[dipendente, giorno]
-            
             scelta = cols_giorni[i].selectbox(
                 f"{giorno}-{dipendente}", lista_turni, 
                 index=lista_turni.index(valore_attuale if valore_attuale in lista_turni else "RIPOSO"), 
