@@ -69,6 +69,13 @@ def aggiungi_emoji_menu(turno):
     elif "TOMM" in v or "TOM" in v: return f"🟤 {turno}"
     return turno
 
+def colora_delta(valore):
+    if valore < 0:
+        return "background-color: #fce8e6; color: #c5221f; font-weight: bold;"
+    elif valore > 0:
+        return "background-color: #e6f4ea; color: #137333; font-weight: bold;"
+    return "color: #5f6368;"
+
 # ==============================================================================
 # ⚙️ LOGICA CALCOLO DATA E CARICAMENTO FILE
 # ==============================================================================
@@ -109,13 +116,11 @@ df_inserimento = st.session_state[chiave_sessione].copy()
 # ✍️ GRIGLIA UNICA DI INSERIMENTO SETTIMANALE
 # ==============================================================================
 with st.expander("✍️ Apri il Pannello Inserimento Turni Personale", expanded=True):
-    # Genera l'intestazione orizzontale bloccata delle colonne
     cols_header = st.columns([1.6, 1, 1, 1, 1, 1, 1, 1])
     cols_header[0].write("**Dipendenti**")
     for i, gf in enumerate(giorni_formattati): 
         cols_header[i+1].write(f"**{gf}**")
 
-    # Inserimento righe per ciascun dipendente affiancate sulla stessa linea
     for dipendente in df_inserimento.index:
         col_nome, *cols_giorni = st.columns([1.6, 1, 1, 1, 1, 1, 1, 1])
         col_nome.write(f"**{dipendente}**")
@@ -144,7 +149,6 @@ for giorno in giorni_formattati:
         if turno not in voci_escluse:
             conteggio = turni_giorno.count(turno)
             if conteggio > 1:
-                st.session_state["conflitto_rilevato"] = True
                 nomi_coinvolti = df_inserimento[df_inserimento[giorno] == turno].index.tolist()
                 nomi_puliti = ", ".join([n.split()[-1] for n in nomi_coinvolti])
                 errori_rilevati.append(f"⚠️ **{giorno.split()[0]}**: Il turno **{turno}** è duplicato tra: {nomi_puliti}.")
@@ -168,42 +172,46 @@ elif blocco_salvataggio:
     st.warning("🔒 Assegnazioni duplicate rilevate. Correggi la griglia per sbloccare il salvataggio.")
 
 # ==============================================================================
-# 📊 CALCOLO DEI TOTALI E TABELLONE FINALE COLORATO
+# 📊 CALCOLO ORE E RESOCONTI CONTRATTUALI
 # ==============================================================================
-ore_lavorate_totali = []
-differenze_totali = []
+st.write("---")
+st.header("📊 Resoconto Ore Settimanali")
 
+ore_lavorate_settimana = []
 for dipendente in df_inserimento.index:
-    ore_contrattuali = dipendenti_ore[dipendente]
-    somma_ore_lavorate = sum(turni_ore[df_inserimento.at[dipendente, giorno]] for giorno in giorni_formattati)
-    ore_lavorate_totali.append(somma_ore_lavorate)
-    differenze_totali.append(somma_ore_lavorate - ore_contrattuali)
+    totale_ore = 0.0
+    for giorno in giorni_formattati:
+        turno = df_inserimento.at[dipendente, giorno]
+        totale_ore += turni_ore.get(turno, 0.0)
+    ore_lavorate_settimana.append(totale_ore)
 
-df_report = df_inserimento.copy()
-df_report.insert(0, "ORE CONTR.", [dipendenti_ore[d] for d in df_report.index])
-df_report["ORE LAV."] = ore_lavorate_totali
-df_report["DIFF."] = differenze_totali
+df_ore = pd.DataFrame({
+    "Ore Contrattuali": [dipendenti_ore[d] for d in df_inserimento.index],
+    "Ore Svolte": ore_lavorate_settimana
+}, index=df_inserimento.index)
 
-riga_totale = pd.Series(index=df_report.columns, dtype=object)
-riga_totale["ORE CONTR."] = sum(dipendenti_ore.values())
-riga_totale["ORE LAV."] = sum(ore_lavorate_totali)
-riga_totale["DIFF."] = sum(differenze_totali)
-for giorno in giorni_formattati: riga_totale[giorno] = ""
+df_ore["Delta (Ore)"] = df_ore["Ore Svolte"] - df_ore["Ore Contrattuali"]
 
-df_report.loc["ORE DIPENDENTI"] = riga_totale
+totale_ore_squadra = df_ore["Ore Svolte"].sum()
+st.metric(label="Totalizzatore Ore Lavorate dalla Squadra", value=f"{totale_ore_squadra:.1f} ore")
 
-st.subheader("📊 Riepilogo Calcoli e Totali del Personale (Tabellone Unificato)")
-df_style = df_report.style.map(colora_tipologia_turno, subset=giorni_formattati)
-st.dataframe(df_style, use_container_width=True)
+st.subheader("📈 Dettaglio Ore per Dipendente")
+df_ore_styled = df_ore.style.format("{:.1f}").applymap(colora_delta, subset=["Delta (Ore)"])
+st.dataframe(df_ore_styled, use_container_width=True)
 
-# Generazione file Excel per il download
-st.subheader("💾 Esporta i Dati Compilati")
-output = io.BytesIO()
-with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
-    df_report.to_excel(writer, sheet_name="Turni Settimanali")
+# ==============================================================================
+# 👀 TABELLA VISUALE RIASSUNTIVA ORARI
+# ==============================================================================
+st.write("---")
+st.header("👀 Tabella Orari Applicata (Anteprima)")
 
-st.download_button(
-    label="🟢 Scarica i turni inseriti in Excel (.xlsx)", data=output.getvalue(),
-    file_name=f"Turni_Settimana_{data_inizio.strftime('%Y_%m_%d')}.xlsx",
-    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-)
+df_inserimento_styled = df_inserimento.style.applymap(colora_tipologia_turno)
+st.dataframe(df_inserimento_styled, use_container_width=True)
+
+# ==============================================================================
+# 📥 ESPORTAZIONE DATI
+# ==============================================================================
+st.write("")
+st.subheader("📥 Esporta la Pianificazione")
+
+col_csv, col_excel = st.columns(2)
