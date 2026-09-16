@@ -86,7 +86,12 @@ with st.expander("📥 Importa Turni da File Esterno (Excel / CSV)", expanded=Fa
                         for i, g_griglia in enumerate(giorni_formattati):
                             valore_file = str(df_imp.iloc[df_imp.index.get_loc(dip_file), i]).strip().upper()
                             if valore_file in lista_maiuscoli:
-                                st.session_state[chiave_sessione].at[dip_griglia, g_griglia] = lista_turni[lista_maiuscoli.index(valore_file)]
+                                turno_corretto = lista_turni[lista_maiuscoli.index(valore_file)]
+                                st.session_state[chiave_sessione].at[dip_griglia, g_griglia] = turno_corretto
+                                
+                                # AGGIORNAMENTO DIRETTO DELLO STATO VISIVO DEI COMPONENTI
+                                chiave_widget = f"wk_{data_inizio.strftime('%Y%m%d')}_{dip_griglia}_{g_griglia}"
+                                st.session_state[chiave_widget] = turno_corretto
                                 contatore += 1
                 if contatore > 0:
                     st.success(f"🎉 Caricati {contatore} turni con successo!")
@@ -104,12 +109,14 @@ with st.expander("✍️ Apri il Pannello Inserimento Turni Personale", expanded
         col_nome, *cols_giorni = st.columns([1.6, 1, 1, 1, 1, 1, 1, 1])
         col_nome.write(f"**{dipendente}**")
         for i, giorno in enumerate(giorni_formattati):
+            chiave_widget = f"wk_{data_inizio.strftime('%Y%m%d')}_{dipendente}_{giorno}"
             valore_attuale = df_inserimento.at[dipendente, giorno]
+            
             scelta = cols_giorni[i].selectbox(
                 f"{giorno}-{dipendente}", lista_turni, 
                 index=lista_turni.index(valore_attuale if valore_attuale in lista_turni else "RIPOSO"), 
                 format_func=aggiungi_emoji_menu, label_visibility="collapsed", 
-                key=f"wk_{data_inizio.strftime('%Y%m%d')}_{dipendente}_{giorno}"
+                key=chiave_widget
             )
             df_inserimento.at[dipendente, giorno] = scelta
 
