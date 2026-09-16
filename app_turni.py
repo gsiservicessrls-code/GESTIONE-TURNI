@@ -102,7 +102,7 @@ df_inserimento = st.session_state[chiave_sessione].copy()
 
 with st.expander("✍️ Apri il Pannello Inserimento Turni Personale", expanded=True):
     cols_header = st.columns([1.6, 1, 1, 1, 1, 1, 1, 1])
-    cols_header.write("**Dipendenti**")
+    cols_header[0].write("**Dipendenti**") # CORRETTO: Aggiunto l'indice [0] mancante
     for i, gf in enumerate(giorni_formattati): cols_header[i+1].write(f"**{gf}**")
     for dipendente in df_inserimento.index:
         col_nome, *cols_giorni = st.columns([1.6, 1, 1, 1, 1, 1, 1, 1])
