@@ -96,7 +96,7 @@ df_inserimento = st.session_state[chiave_sessione].copy()
 
 with st.expander("✍️ Apri il Pannello Inserimento Turni Personale", expanded=True):
     cols_header = st.columns([1.6, 1, 1, 1, 1, 1, 1, 1])
-    cols_header.write("**Dipendenti**")
+    cols_header[0].write("**Dipendenti**") # CORRETTO: Inserito l'indice della colonna
     for i, gf in enumerate(giorni_formattati): cols_header[i+1].write(f"**{gf}**")
     for dipendente in df_inserimento.index:
         col_nome, *cols_giorni = st.columns([1.6, 1, 1, 1, 1, 1, 1, 1])
@@ -111,12 +111,12 @@ with st.expander("✍️ Apri il Pannello Inserimento Turni Personale", expanded
 st.session_state[chiave_sessione] = df_inserimento
 errori_rilevati = [f"⚠️ {gi.split()}: {tu} è duplicato." for gi in giorni_formattati for tu in lista_turni if tu not in ["RIPOSO", "SENZA TURNO", "FERIE", "MALATTIA", "PERMESSO RETR."] and df_inserimento[gi].tolist().count(tu) > 1]
 
-if errors_rilevati := errori_rilevati:
+if errori_rilevati:
     st.error("### 🛑 Conflitti di assegnazione:")
-    for errore in errors_rilevati: st.write(errore)
+    for errore in errori_rilevati: st.write(errore)
 
 st.write("")
-if st.columns(2).button("💾 SALVA MODIFICHE PERMANENTI", use_container_width=True, disabled=len(errori_rilevati) > 0):
+if st.columns(2)[0].button("💾 SALVA MODIFICHE PERMANENTI", use_container_width=True, disabled=len(errori_rilevati) > 0):
     df_inserimento.to_csv(FILE_SALVATAGGIO); st.success("🎉 Turni salvati!")
 
 st.write("---")
@@ -127,10 +127,10 @@ st.metric(label="Totalizzatore Ore Lavorate dalla Squadra", value=f"{sum(ore_l):
 st.dataframe(df_ore.style.format("{:.1f}").map(lambda v: "background-color: #fce8e6; color: #c5221f; font-weight: bold;" if v < 0 else "background-color: #e6f4ea; color: #137333; font-weight: bold;" if v > 0 else "color: #5f6368;", subset=["Delta (Ore)"]), use_container_width=True)
 
 st.write("---")
-st.header("👀 Tabella Orari Applicata (Anteprima)") # NUOVO/RIPRISTINATO: Pannello visivo riattivato
+st.header("👀 Tabella Orari Applicata (Anteprima)")
 st.dataframe(df_inserimento.style.map(colora_tipologia_turno), use_container_width=True)
 
-st.write("---")
+st.write("")
 col_csv, col_excel = st.columns(2)
 csv_buf = io.StringIO(); df_inserimento.to_csv(csv_buf)
 col_csv.download_button(label="📄 Scarica in CSV", data=csv_buf.getvalue(), file_name=f"turni_{data_inizio.strftime('%Y%m%d')}.csv", mime="text/csv", use_container_width=True)
