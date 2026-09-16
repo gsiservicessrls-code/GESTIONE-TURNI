@@ -80,11 +80,8 @@ with st.expander("📥 Importa Turni da File Esterno (Excel / CSV)", expanded=Fa
             df_importato.index = df_importato.index.astype(str).str.strip().str.upper()
             
             if st.button("🔄 Applica dati caricati alla settimana attiva", use_container_width=True):
-                # Confronto intelligente senza dipendere dalle date esatte delle colonne
                 for dip_griglia in st.session_state[chiave_sessione].index:
                     dip_puro = dip_griglia.upper().strip()
-                    
-                    # Cerca se il dipendente esiste nel file (anche parziale)
                     dip_trovato_nel_file = None
                     for dip_file in df_importato.index:
                         if dip_file in dip_puro or dip_puro in dip_file:
@@ -106,7 +103,7 @@ df_inserimento = st.session_state[chiave_sessione].copy()
 
 with st.expander("✍️ Apri il Pannello Inserimento Turni Personale", expanded=True):
     cols_header = st.columns([1.6, 1, 1, 1, 1, 1, 1, 1])
-    cols_header.write("**Dipendenti**")
+    cols_header[0].write("**Dipendenti**")
     for i, gf in enumerate(giorni_formattati): cols_header[i+1].write(f"**{gf}**")
     for dipendente in df_inserimento.index:
         col_nome, *cols_giorni = st.columns([1.6, 1, 1, 1, 1, 1, 1, 1])
@@ -131,7 +128,7 @@ for giorno in giorni_formattati:
         if turno not in voci_escluse and turni_giorno.count(turno) > 1:
             nomi_coinvolti = df_inserimento[df_inserimento[giorno] == turno].index.tolist()
             nomi_puliti = ", ".join([n.split()[-1] for n in nomi_coinvolti])
-            errori_rilevati.append(f"⚠️ {giorno.split()[0]}: Il turno {turno} è duplicato tra: {nomi_puliti}.")
+            errori_rilevati.append(f"⚠️ Il turno {turno} è duplicato tra: {nomi_puliti}.")
 
 blocco_salvataggio = len(errori_rilevati) > 0
 if errori_rilevati:
